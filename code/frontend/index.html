@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>AI仓库监控平台</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+    <style>
+        :root {
+            --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --color-bg: #f8fafc;
+            --color-surface: #ffffff;
+            --color-border: #e2e8f0;
+            --color-text: #1e293b;
+            --color-text-muted: #64748b;
+            --color-primary: #4f46e5;
+            --color-primary-hover: #4338ca;
+            --color-success: #059669;
+            --color-success-hover: #047857;
+            --color-danger: #dc2626;
+            --color-danger-hover: #b91c1c;
+            --color-sidebar: #1e293b;
+            --color-sidebar-hover: #334155;
+            --color-accent: #6366f1;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.1);
+            /* 统一面板工具栏（深色） */
+            --panel-toolbar-bg: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            --panel-toolbar-text: #f8fafc;
+            --panel-toolbar-accent: #6366f1;
+            /* 统一内容区背景 */
+            --panel-content-bg: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-sans);
+            background: linear-gradient(160deg, #e2e8f0 0%, #f1f5f9 40%, #f8fafc 100%);
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--color-text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 80px;
+            background: var(--color-sidebar);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 24px;
+            gap: 2px;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+        }
+        .nav-item {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 8px;
+            color: #94a3b8;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+            background: none;
+            transition: color 0.2s, background 0.2s;
+        }
+        .nav-item:hover { color: #f1f5f9; background: var(--color-sidebar-hover); }
+        .nav-item.active { color: #fff; }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 32px;
+            width: 4px;
+            background: var(--color-accent);
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-item .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 6px;
+            opacity: 0.9;
+        }
+        .nav-item .nav-icon svg { width: 100%; height: 100%; }
+        .content-area {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--color-surface);
+            border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+            box-shadow: 4px 0 24px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+        .panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .panel.active { display: flex; }
+        .container {
+            max-width: 100%;
+            height: calc(100vh - 24px);
+            margin: 0 auto;
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        #panel-preview .header {
+            padding: 20px 24px 16px;
+            margin-bottom: 0;
+            background: var(--color-surface);
+            border-bottom: 1px solid #e2e8f0;
+        }
+        h1 {
+            color: var(--color-text);
+            margin-bottom: 8px;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        #panel-preview h1 {
+            color: #1e293b;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: var(--color-text-muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .main-content {
+            display: flex;
+            gap: 24px;
+            flex: 1;
+            min-height: 0;
+        }
+        /* 预览页：操作栏移出画面，画面扩大 */
+        #panel-preview .main-content {
+            flex-direction: column;
+            gap: 0;
+        }
+        /* 预览页：容器尽量铺满屏幕（与状态栏同宽） */
+        #panel-preview .container {
+            max-width: none;
+            width: min(1560px, calc(100vw - 120px));
+            margin: 0 auto;
+        }
+        #panel-preview .preview-controls-bar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 14px 24px;
+            background: var(--panel-toolbar-bg);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        }
+        #panel-preview .preview-controls-left,
+        #panel-preview .preview-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        #panel-preview .preview-controls-left { justify-content: flex-start; }
+        #panel-preview .preview-controls-right { justify-content: flex-end; flex: 1 1 auto; }
+        #panel-preview .preview-controls-bar .btn {
+            flex: 0 0 auto;
+            min-width: 100px;
+        }
+        #panel-preview .preview-mode-switch {
+            margin: 0;
+            background: rgba(255,255,255,0.08);
+            padding: 4px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        #panel-preview .preview-mode-btn { color: #94a3b8; }
+        #panel-preview .preview-mode-btn.active {
+            background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        .preview-task-select-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .preview-task-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(248, 250, 252, 0.9);
+        }
+        #preview-task-select {
+            padding: 8px 14px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: var(--font-sans);
+            background: rgba(255, 255, 255, 0.12);
+            color: #f8fafc;
+            min-width: 180px;
+            cursor: pointer;
+        }
+        #preview-task-select option {
+            background: #1e293b;
+            color: #f8fafc;
+        }
+
+        /* 预览页：状态栏内联样式（与按钮同一行） */
+        #panel-preview .system-status-wrap {
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        #panel-preview .system-status-label {
+            color: rgba(226, 232, 240, 0.85);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        #panel-preview #system-status-pill {
+            transform: translateZ(0);
+        }
+
+        .preview-grid-wrap {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 0;
+            /* 统一九宫格底色，分割线“间距感”由 padding+线条实现 */
+            background: #0f172a;
+            padding: 8px;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            position: relative;
+        }
+        /* 九宫格分隔线（覆盖在视频上方，不改后端合成图） */
+        #panel-preview .preview-grid-wrap::before {
+            content: "";
+            position: absolute;
+            inset: 8px; /* 与 padding 对齐，让线条不贴边 */
+            pointer-events: none;
+            z-index: 1;
+            background:
+                linear-gradient(to right,
+                    transparent 0%,
+                    transparent calc(33.333% - 2px),
+                    rgba(226,232,240,0.22) calc(33.333% - 2px),
+                    rgba(226,232,240,0.22) calc(33.333% + 2px),
+                    transparent calc(33.333% + 2px),
+                    transparent calc(66.666% - 2px),
+                    rgba(226,232,240,0.22) calc(66.666% - 2px),
+                    rgba(226,232,240,0.22) calc(66.666% + 2px),
+                    transparent calc(66.666% + 2px),
+                    transparent 100%
+                ),
+                linear-gradient(to bottom,
+                    transparent 0%,
+                    transparent calc(33.333% - 2px),
+                    rgba(226,232,240,0.22) calc(33.333% - 2px),
+                    rgba(226,232,240,0.22) calc(33.333% + 2px),
+                    transparent calc(33.333% + 2px),
+                    transparent calc(66.666% - 2px),
+                    rgba(226,232,240,0.22) calc(66.666% - 2px),
+                    rgba(226,232,240,0.22) calc(66.666% + 2px),
+                    transparent calc(66.666% + 2px),
+                    transparent 100%
+                );
+            /* 轻微高光+阴影，让分割线更“有间距感” */
+            filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35)) drop-shadow(0 -1px 0 rgba(255,255,255,0.06));
+        }
+        /* 九宫格四边边框（与分割线同一套视觉） */
+        #panel-preview .preview-grid-wrap::after {
+            content: "";
+            position: absolute;
+            inset: 8px; /* 与 ::before 对齐 */
+            pointer-events: none;
+            z-index: 1;
+            border: 2px solid rgba(226, 232, 240, 0.22);
+            border-radius: 14px;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+        .preview-grid-wrap .preview-grid-media {
+            grid-column: 1 / -1;
+            grid-row: 1 / -1;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            z-index: 0;
+        }
+        .preview-grid-wrap .preview-grid-overlay {
+            grid-column: 1 / -1;
+            grid-row: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+        #panel-preview .preview-grid-wrap .preview-cell-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.92);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 999px;
+            backdrop-filter: blur(6px);
+            margin: 10px;
+            /* 关键：Grid item 默认会拉伸填满格子，导致出现“椭圆遮罩” */
+            justify-self: start;
+            align-self: end;
+            width: fit-content;
+            height: fit-content;
+            max-width: calc(100% - 20px);
+        }
+        #panel-preview .video-section {
+            flex: 0 0 auto;
+            min-height: 0;
+            flex-direction: column;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+        .video-section {
+            flex: 0 0 65%;
+            background: #0f172a;
+            border-radius: var(--radius-md);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        /* 画面整体显示大小固定（桌面默认 1280×720），小屏自动收缩 */
+        #panel-preview .video-section {
+            width: 100%;
+            /* 保持 16:9，尽量铺满可用区域 */
+            aspect-ratio: 16 / 9;
+            height: auto;
+            max-height: calc(100vh - 220px);
+            margin: 0 auto;
+            background: #0f172a;
+            box-shadow: 0 18px 50px rgba(2, 6, 23, 0.35);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        #video-feed, #video-hls {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border: none;
+            outline: none;
+            display: block;
+        }
+        #video-hls { background: #0f172a; }
+        .control-section {
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .control-section::-webkit-scrollbar { width: 8px; }
+        .control-section::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .control-section::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        .system-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .preview-mode-switch { margin-top: 10px; display: inline-flex; border-radius: 999px; background: #e5e7eb; padding: 2px; }
+        .preview-mode-btn {
+            border: none;
+            background: transparent;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #4b5563;
+        }
+        .preview-mode-btn.active {
+            background: #0f766e;
+            color: #fff;
+        }
+        .scene-group {
+            background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+        }
+        .scene-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .scene-icon { font-size: 22px; }
+        .daily-group .scene-title { color: var(--color-primary); border-bottom-color: #818cf8; }
+        .work-group .scene-title { color: var(--color-success); border-bottom-color: #34d399; }
+        .detector-buttons { display: flex; flex-direction: column; gap: 14px; }
+        .detector-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        .daily-group .detector-card:hover {
+            border-color: #818cf8;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+            transform: translateY(-1px);
+        }
+        .work-group .detector-card:hover {
+            border-color: #34d399;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.12);
+            transform: translateY(-1px);
+        }
+        .detector-card h3 {
+            margin-bottom: 10px;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .detector-name { display: flex; align-items: center; gap: 8px; }
+        .detector-name .icon { font-size: 20px; }
+        .detector-description {
+            font-size: 14px;
+            color: var(--color-text-muted);
+            margin-top: 8px;
+            line-height: 1.55;
+        }
+        .btn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .btn-start { background: linear-gradient(135deg, #059669, #047857); color: #fff; flex: 1; }
+        .btn-start:hover { background: linear-gradient(135deg, #10b981, #059669); }
+        .btn-stop { background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; flex: 1; }
+        .btn-stop:hover { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .btn-info { background: linear-gradient(135deg, var(--color-accent), var(--color-primary)); color: #fff; flex: 1; }
+        .btn-info:hover { background: linear-gradient(135deg, #818cf8, var(--color-accent)); }
+        .btn-warn { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+        .btn-warn:hover { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-danger { background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; }
+        .btn-danger:hover { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #cbd5e1;
+            transition: 0.25s;
+            border-radius: 26px;
+        }
+        .toggle-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            transition: 0.25s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider { background: var(--color-success); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .toggle-switch.disabled { opacity: 0.5; cursor: not-allowed; }
+        .toggle-switch.disabled .slider { cursor: not-allowed; }
+
+        /* ========== 主界面系统状态条 ========== */
+        .system-status-wrap {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .system-status-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            border: 1px solid rgba(226,232,240,0.9);
+            background: rgba(255,255,255,0.85);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .status-pill .icon { font-size: 14px; }
+        .status-pill.running { color: #065f46; border-color: rgba(5,150,105,0.35); background: rgba(209,250,229,0.6); }
+        .status-pill.stopped { color: #7f1d1d; border-color: rgba(220,38,38,0.35); background: rgba(254,226,226,0.65); }
+        .status-pill.starting { color: #92400e; border-color: rgba(245,158,11,0.4); background: rgba(254,243,199,0.75); }
+        .status-pill.stopping { color: #92400e; border-color: rgba(245,158,11,0.4); background: rgba(254,243,199,0.75); }
+        .status-pill.running:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+        }
+
+        /* ========== 视频叠加已移除（不再显示 FPS/连接状态框） ========== */
+        .toast-container {
+            display: none !important;
+        }
+        .app-modal-overlay {
+            display: none !important;
+        }
+        /* 原 toast 与 modal 样式保留但不再使用 */
+        .toast {
+            padding: 18px 22px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #f8fafc;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            max-width: 380px;
+            min-width: 300px;
+            animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 5px solid var(--color-danger);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            pointer-events: auto; /* 允许点击跳转 */
+            cursor: pointer;
+        }
+        .toast::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--color-danger), rgba(220, 38, 38, 0.3));
+        }
+        .toast .toast-type {
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+        .toast .toast-type::before {
+            content: '🚨';
+            font-size: 18px;
+            filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.4));
+        }
+        .toast .toast-time {
+            font-size: 12px;
+            color: #94a3b8;
+            opacity: 0.85;
+            font-weight: 500;
+        }
+        @keyframes toast-in {
+            from {
+                opacity: 0;
+                transform: translateX(40px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+        @keyframes toast-out {
+            from {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(40px) scale(0.95);
+            }
+        }
+        /* 统一弹窗：无黑框，与界面风格一致 */
+        .app-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: var(--font-sans);
+        }
+        .app-modal-overlay.show { display: flex; }
+        .app-modal {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            min-width: 320px;
+            max-width: 440px;
+            overflow: hidden;
+        }
+        .app-modal-icon {
+            width: 48px;
+            height: 48px;
+            margin: 24px auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .app-modal-icon.success { background: #d1fae5; color: #059669; }
+        .app-modal-icon.error { background: #fee2e2; color: #dc2626; }
+        .app-modal-icon.info { background: #e0e7ff; color: var(--color-primary); }
+        .app-modal-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+            padding: 0 24px 8px;
+        }
+        .app-modal-body {
+            text-align: center;
+            font-size: 14px;
+            color: var(--color-text-muted);
+            padding: 0 24px 24px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .app-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            padding: 0 24px 24px;
+        }
+        .app-modal-buttons .btn-modal {
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-sans);
+            transition: background 0.2s;
+        }
+        .app-modal-buttons .btn-modal-primary {
+            background: var(--color-primary);
+            color: #fff;
+        }
+        .app-modal-buttons .btn-modal-primary:hover { background: var(--color-primary-hover); }
+        .app-modal-buttons .btn-modal-secondary {
+            background: var(--color-border);
+            color: var(--color-text);
+        }
+        .app-modal-buttons .btn-modal-secondary:hover { background: #cbd5e1; }
+        .alerts-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 18px 28px;
+            border-bottom: none;
+            flex-wrap: wrap;
+            background: var(--panel-toolbar-bg);
+        }
+        .alerts-toolbar label { font-weight: 600; color: var(--panel-toolbar-text); font-size: 14px; }
+        .alerts-toolbar select {
+            padding: 10px 14px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            min-width: 150px;
+            background: rgba(255,255,255,0.1);
+            color: #f8fafc;
+            cursor: pointer;
+        }
+        .alerts-toolbar select option { background: #1e293b; color: #f8fafc; }
+        .alerts-path { font-size: 12px; color: rgba(248,250,252,0.7); flex: 1 1 100%; margin-top: 8px; }
+        .alerts-toolbar-group { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+        .alerts-toolbar-group label input[type="checkbox"] { margin-right: 6px; accent-color: var(--panel-toolbar-accent); }
+        .alerts-toolbar-group .btn { white-space: nowrap; }
+        .alerts-batch-info { font-size: 13px; color: var(--color-text-muted); }
+        #panel-alerts .alerts-toolbar .btn { padding: 10px 18px; font-size: 13px; min-width: fit-content; }
+        #panel-alerts {
+            background: var(--panel-content-bg);
+        }
+        #panel-alerts > p:first-of-type {
+            padding: 12px 28px !important;
+            background: rgba(99, 102, 241, 0.06) !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            margin: 0 !important;
+        }
+        .alerts-list {
+            flex: 0 0 auto;
+            padding: 24px 28px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            align-content: start;
+        }
+        .alerts-list .alert-card {
+            background: var(--color-surface);
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .alerts-list .alert-card:hover {
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12);
+            border-color: #c7d2fe;
+        }
+        .alerts-list .alert-card .thumb {
+            width: 100%;
+            height: 130px;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 40px;
+        }
+        .alerts-list .alert-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .alerts-list .alert-card .info { padding: 14px; }
+        .alerts-list .alert-card .name { font-size: 14px; font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .alerts-list .alert-card .meta { font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
+        .alerts-list .alert-card .btn-download {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .alerts-list .alert-card .btn-download:hover {
+            background: linear-gradient(135deg, #818cf8, var(--color-accent));
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        .config-toolbar {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+        .config-toolbar h2 {
+            font-size: 20px;
+            font-weight: 750;
+            color: var(--color-text);
+            display:flex;
+            align-items:center;
+            gap:8px;
+        }
+        .config-content { flex: 1; overflow-y: auto; padding: 24px; }
+        .config-section {
+            background: linear-gradient(135deg, #f9fafb 0%, #eef2ff 50%, #f9fafb 100%);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: var(--radius-lg);
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+            transform: translateY(0);
+            transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+        }
+        .config-section:hover {
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+            transform: translateY(-2px);
+            border-color: rgba(129, 140, 248, 0.7);
+        }
+        .config-section-title {
+            padding: 16px 22px;
+            background: #f1f5f9;
+            font-weight: 650;
+            color: var(--color-text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+        }
+        .config-section-body { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+        .config-field { display: flex; flex-direction: column; gap: 6px; }
+        .config-field label {
+            font-size: 14px;
+            font-weight: 550;
+            color: var(--color-text-muted);
+            display:flex;
+            align-items:center;
+            gap:6px;
+            line-height: 1.5;
+        }
+        .config-help {
+            font-size: 14px;
+            cursor: default;
+            color: #9ca3af;
+        }
+        .config-help:hover {
+            color: var(--color-primary);
+        }
+        .config-field input {
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-sans);
+        }
+        .config-field input:focus { outline: none; border-color: var(--color-primary); }
+        .btn-save-config {
+            padding: 10px 24px;
+            background: var(--color-success);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 14px;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-save-config:hover { background: var(--color-success-hover); }
+        .config-section-wrap { margin-bottom: 24px; }
+
+        /* ========== 任务管理页专用样式 ========== */
+        #panel-tasks .config-toolbar {
+            background: var(--panel-toolbar-bg);
+            border-bottom: none;
+            padding: 20px 28px;
+        }
+        #panel-tasks .config-toolbar h2 {
+            color: var(--panel-toolbar-text);
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #panel-tasks .config-toolbar h2::before {
+            content: '';
+            width: 4px;
+            height: 22px;
+            background: linear-gradient(180deg, #6366f1, #818cf8);
+            border-radius: 2px;
+        }
+        #panel-tasks .btn-save-config {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        #panel-tasks .btn-save-config:hover {
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.45);
+        }
+        #panel-tasks .config-content {
+            background: var(--panel-content-bg);
+        }
+        #panel-tasks .config-help {
+            padding: 12px 16px;
+            background: rgba(99, 102, 241, 0.08);
+            border-radius: var(--radius-md);
+            border-left: 4px solid #6366f1;
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        #panel-tasks .config-section-body {
+            grid-template-columns: 1fr;
+        }
+        #panel-tasks .config-section-title {
+            background: linear-gradient(90deg, #f8fafc, #f1f5f9);
+            border-left: 4px solid #6366f1;
+        }
+        #panel-tasks .config-field { min-width: 0; }
+        #panel-tasks .config-field label {
+            font-weight: 600;
+            color: #334155;
+        }
+        #panel-tasks .config-field input,
+        #panel-tasks .config-field select {
+            padding: 12px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #panel-tasks .config-field input:focus,
+        #panel-tasks .config-field select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        #panel-tasks select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
+        }
+
+        /* 检测器选择卡片（多选芯片） */
+        .task-detector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        .task-detector-chip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .task-detector-chip:hover {
+            border-color: #c7d2fe;
+            background: #f8fafc;
+        }
+        .task-detector-chip input[type="checkbox"] {
+            display: none;
+        }
+        .task-detector-chip.checked {
+            border-color: #6366f1;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(129, 140, 248, 0.08));
+        }
+        .task-detector-chip.checked:hover {
+            border-color: #4f46e5;
+        }
+        .task-detector-chip .chip-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: #e2e8f0;
+            color: #64748b;
+        }
+        .task-detector-chip.checked .chip-icon {
+            background: #6366f1;
+            color: #fff;
+        }
+        .task-detector-chip .chip-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+        .task-detector-chip .chip-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+        .task-detector-chip.checked .chip-label {
+            color: #4338ca;
+        }
+
+        /* 任务卡片列表 */
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            background: #fff;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+        .task-item:hover {
+            border-color: #c7d2fe;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+        }
+        .task-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .task-item-name {
+            font-weight: 700;
+            font-size: 15px;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .task-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .task-item-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .task-item-meta .meta-badge {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .task-item-meta .meta-badge.channel {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+        .task-item-meta .meta-badge.detectors {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .task-item-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .task-item-status {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+        .task-item-status.running {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .task-item-status.stopped {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+        .task-item-actions .btn-task {
+            padding: 8px 14px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .task-item-actions .btn-task-start {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: #fff;
+        }
+        .task-item-actions .btn-task-start:hover { background: linear-gradient(135deg, #10b981, #059669); }
+        .task-item-actions .btn-task-stop {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: #fff;
+        }
+        .task-item-actions .btn-task-stop:hover { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .task-item-actions .btn-task-edit {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        .task-item-actions .btn-task-edit:hover { background: #cbd5e1; }
+        .task-item-actions .btn-task-delete {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .task-item-actions .btn-task-delete:hover { background: #fecaca; }
+
+        .task-empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #64748b;
+        }
+        .task-empty-icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+        .task-empty-state p {
+            font-size: 15px;
+            font-weight: 600;
+            color: #475569;
+        }
+        .task-empty-hint {
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            color: #94a3b8 !important;
+            margin-top: 8px !important;
+        }
+
+        /* 视频流服务页样式 */
+        .streams-page {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+            background: var(--panel-content-bg);
+        }
+        .streams-header {
+            padding: 20px 28px;
+            border-bottom: none;
+            background: var(--panel-toolbar-bg);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .streams-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--panel-toolbar-text);
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .streams-header h2::before {
+            content: '';
+            width: 4px;
+            height: 22px;
+            background: linear-gradient(180deg, var(--panel-toolbar-accent), #818cf8);
+            border-radius: 2px;
+        }
+        .streams-desc {
+            font-size: 13px;
+            color: rgba(248, 250, 252, 0.75);
+            line-height: 1.5;
+        }
+        .streams-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 28px;
+        }
+        .streams-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .btn-stream-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+        .btn-stream-add:hover {
+            background: linear-gradient(135deg, #818cf8, var(--color-accent));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.45);
+        }
+        .btn-stream-add-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .btn-stream-save-all {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-stream-save-all:hover { background: linear-gradient(135deg, #10b981, #059669); }
+        .stream-add-form {
+            margin-bottom: 24px;
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .stream-add-form-inner {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 16px;
+            align-items: end;
+        }
+        @media (max-width: 720px) {
+            .stream-add-form-inner {
+                grid-template-columns: 1fr;
+            }
+        }
+        .stream-form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .stream-form-row label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+        .stream-form-row input {
+            padding: 10px 14px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-sans);
+        }
+        .stream-form-row input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        .stream-form-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn-stream-save-one {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-stream-save-one:hover { background: linear-gradient(135deg, #10b981, #059669); }
+        .btn-stream-cancel {
+            padding: 10px 20px;
+            background: #e2e8f0;
+            color: #475569;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-stream-cancel:hover { background: #cbd5e1; }
+        .streams-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .stream-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 18px 22px;
+            background: var(--color-surface);
+            border-radius: var(--radius-md);
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+        .stream-card:hover {
+            border-color: #c7d2fe;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.1);
+        }
+        .stream-card-channel {
+            flex: 0 0 80px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--color-accent);
+        }
+        .stream-card-name {
+            flex: 1;
+            min-width: 120px;
+        }
+        .stream-card-name input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+        }
+        .stream-card-ip {
+            flex: 2;
+            min-width: 180px;
+        }
+        .stream-card-ip input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+        }
+        .stream-card-remove {
+            flex: 0 0 auto;
+            padding: 8px 14px;
+            background: #fef2f2;
+            color: var(--color-danger);
+            border: 1px solid #fecaca;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .stream-card-remove:hover { background: #fee2e2; }
+        .streams-empty {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--color-text-muted);
+            font-size: 15px;
+            background: var(--color-surface);
+            border-radius: var(--radius-md);
+            border: 1px dashed #cbd5e1;
+        }
+        .config-stream-paths { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .config-stream-paths .config-field { min-width: 0; }
+        /* 报警事件面板允许整体滚动，避免卡片被压缩过小或无法点击 */
+        #panel-alerts {
+            overflow-y: auto;
+        }
+        #panel-alerts::-webkit-scrollbar,
+        #panel-streams .streams-body::-webkit-scrollbar,
+        #panel-tasks .config-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        #panel-alerts::-webkit-scrollbar-track,
+        #panel-streams .streams-body::-webkit-scrollbar-track,
+        #panel-tasks .config-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        #panel-alerts::-webkit-scrollbar-thumb,
+        #panel-streams .streams-body::-webkit-scrollbar-thumb,
+        #panel-tasks .config-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        #panel-alerts::-webkit-scrollbar-thumb:hover,
+        #panel-streams .streams-body::-webkit-scrollbar-thumb:hover,
+        #panel-tasks .config-content::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .empty-state {
+            padding: 48px 24px;
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+
+        /* ========== 登录界面 ========== */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            background: linear-gradient(160deg, #e2e8f0 0%, #f1f5f9 40%, #f8fafc 100%);
+            font-family: var(--font-sans);
+        }
+        #login-screen.hidden { display: none; }
+        .login-left {
+            width: 460px;
+            min-width: 380px;
+            background: var(--color-surface);
+            box-shadow: 8px 0 32px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            padding: 52px 56px;
+            justify-content: center;
+            position: relative;
+        }
+        .login-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 44px;
+            letter-spacing: -0.02em;
+            text-align: center;
+        }
+        .login-logo span { color: var(--color-primary); }
+        .login-sub { font-size: 14px; color: var(--color-text-muted); margin-bottom: 32px; text-align: center; }
+        .login-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 36px;
+            text-align: center;
+        }
+        .login-form .field-wrap {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 0 18px;
+            margin-bottom: 20px;
+            height: 50px;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .login-form .field-wrap:focus-within {
+            border-color: var(--color-primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+        .login-form .field-wrap .icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 14px;
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+        }
+        .login-form .field-wrap input {
+            flex: 1;
+            border: none;
+            font-size: 15px;
+            font-family: var(--font-sans);
+            color: var(--color-text);
+            background: transparent;
+        }
+        .login-form .field-wrap input::placeholder { color: #94a3b8; }
+        .login-form .field-wrap input:focus { outline: none; }
+        .login-forgot { text-align: right; margin-bottom: 24px; }
+        .login-forgot a {
+            color: var(--color-text-muted);
+            font-size: 14px;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .login-forgot a:hover { color: var(--color-primary); }
+        .login-btn {
+            width: 100%;
+            height: 50px;
+            border: none;
+            border-radius: var(--radius-md);
+            background: var(--color-primary);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover { background: var(--color-primary-hover); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35); }
+        .login-disclaimer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: var(--color-text-muted);
+            text-align: center;
+            line-height: 1.6;
+        }
+        .login-error {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #fef2f2;
+            color: var(--color-danger);
+            font-size: 14px;
+            border-radius: var(--radius-sm);
+            display: none;
+        }
+        .login-error.show { display: block; }
+        .login-right {
+            flex: 1;
+            background: linear-gradient(160deg, #e0e7ff 0%, #c7d2fe 50%, #e2e8f0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-right::before {
+            content: '';
+            position: absolute;
+            width: 480px;
+            height: 480px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .login-right .decoration {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            background: rgba(255,255,255,0.85);
+            border-radius: 24px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 72px;
+        }
+        .login-copyright {
+            position: absolute;
+            bottom: 28px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+        .login-copyright .login-copyright-brand {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面：未登录时显示 -->
+    <div id="login-screen">
+        <div class="login-left">
+            <div class="login-logo">粮库AI监管平台<span></span></div>
+            <p class="login-sub">实时监测 · 智能告警 · 一键配置</p>
+            <h1 class="login-title">欢迎登录</h1>
+            <form class="login-form" id="login-form" onsubmit="return doLogin(event)" autocomplete="off">
+                <div class="login-error" id="login-error">用户名或密码错误</div>
+                <div class="field-wrap">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <input type="text" id="login-username" placeholder="用户名" autocomplete="off" required>
+                </div>
+                <div class="field-wrap">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <input type="password" id="login-password" placeholder="密码" autocomplete="new-password" required>
+                </div>
+                <div class="login-forgot"><a href="javascript:void(0)">忘记密码?</a></div>
+                <button type="submit" class="login-btn">登录</button>
+            </form>
+            <p class="login-disclaimer">使用产品时，请尊重他人隐私等权利</p>
+            <div class="login-copyright">© <span class="login-copyright-brand">粮库AI监管平台</span> · 请勿外传</div>
+        </div>
+        <div class="login-right">
+            <div class="decoration">📹</div>
+        </div>
+    </div>
+
+    <div class="app-layout" id="app-layout" style="display:none;">
+        <nav class="sidebar">
+            <button type="button" class="nav-item active" data-panel="preview" title="主画面（实时监测）">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M22 12l-4-4v8l4-4z"/><path d="M2 12l4-4v8l-4-4z"/></svg></span>
+                <span>预览</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="alerts" title="报警事件">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                <span>报警事件</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="streams" title="视频流服务">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                <span>视频流</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="tasks" title="任务管理">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                <span>任务管理</span>
+            </button>
+        </nav>
+        <div class="content-area">
+            <!-- 主画面：实时监测（九宫格 + 顶部工具栏） -->
+            <div id="panel-preview" class="panel active">
+    <div class="container">
+        <div class="header">
+            <h1>粮库AI监管平台</h1>
+            <div class="subtitle">榆桥科技</div>
+        </div>
+        
+        <div class="main-content">
+            <div class="preview-controls-bar">
+                <div class="preview-controls-left">
+                    <div class="system-status-wrap">
+                        <span class="system-status-label">当前状态</span>
+                        <span id="system-status-pill" class="status-pill stopped"><span class="icon">❌</span><span id="system-status-text">已停止</span></span>
+                    </div>
+                </div>
+                <div class="preview-controls-right">
+                    <button class="btn btn-start" onclick="startSystem()">启动系统</button>
+                    <button class="btn btn-stop" onclick="stopSystem()">停止</button>
+                    <button class="btn btn-info" onclick="toggleFullView()">全览画面</button>
+                    <div class="preview-mode-switch">
+                        <button type="button" id="mode-merged" class="preview-mode-btn active" onclick="setPreviewMode('merged')">合流通道</button>
+                        <button type="button" id="mode-task" class="preview-mode-btn" onclick="setPreviewMode('task')">任务通道</button>
+                    </div>
+                    <div id="preview-task-select-wrap" class="preview-task-select-wrap" style="display:none;">
+                        <label class="preview-task-label">选择任务：</label>
+                        <select id="preview-task-select" onchange="onPreviewTaskChange()">
+                            <option value="">-- 选择运行中的任务 --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="video-section">
+                <div class="preview-grid-wrap">
+                    <video id="video-hls" class="preview-grid-media" muted autoplay playsinline style="display:none" alt="HLS 实时视频流（低延迟）"></video>
+                    <img id="video-feed" class="preview-grid-media" src="/video_feed" alt="实时视频流（MJPEG 回退）">
+                    <div class="preview-grid-overlay" aria-hidden="true">
+                        <span class="preview-cell-label">通道 1</span>
+                        <span class="preview-cell-label">通道 2</span>
+                        <span class="preview-cell-label">通道 3</span>
+                        <span class="preview-cell-label">通道 4</span>
+                        <span class="preview-cell-label">通道 5</span>
+                        <span class="preview-cell-label">通道 6</span>
+                        <span class="preview-cell-label">通道 7</span>
+                        <span class="preview-cell-label">通道 8</span>
+                        <span class="preview-cell-label">通道 9</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+            </div>
+            
+            <!-- 报警事件 -->
+            <div id="panel-alerts" class="panel">
+                <div class="alerts-toolbar">
+                    <div class="alerts-toolbar-group">
+                        <label>告警类别：</label>
+                        <select id="alerts-category">
+                            <option value="">全部</option>
+                            <option value="fall">跌倒检测</option>
+                            <option value="helmet">安全帽检测</option>
+                            <option value="fight">打架检测</option>
+                            <option value="crowd">聚集检测</option>
+                            <option value="window_door_inside">门窗（仓内）</option>
+                            <option value="window_door_outside">门窗（仓外）</option>
+                            <option value="ventilator">呼吸机检测</option>
+                        </select>
+                        <label>视频通道：</label>
+                        <select id="alerts-channel">
+                            <option value="">全部通道</option>
+                            <option value="1">通道 1</option>
+                            <option value="2">通道 2</option>
+                            <option value="3">通道 3</option>
+                            <option value="4">通道 4</option>
+                            <option value="5">通道 5</option>
+                            <option value="6">通道 6</option>
+                            <option value="7">通道 7</option>
+                            <option value="8">通道 8</option>
+                            <option value="9">通道 9</option>
+                            <option value="10">通道 10</option>
+                            <option value="11">通道 11</option>
+                            <option value="12">通道 12</option>
+                            <option value="13">通道 13</option>
+                            <option value="14">通道 14</option>
+                            <option value="15">通道 15</option>
+                            <option value="16">通道 16</option>
+                        </select>
+                        <label>排序：</label>
+                        <select id="alerts-sort">
+                            <option value="desc">时间：最新在前</option>
+                            <option value="asc">时间：最早在前</option>
+                        </select>
+                    </div>
+                    <div class="alerts-toolbar-group">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="alerts-select-all" onchange="toggleSelectAllAlerts()">
+                            <span>全选</span>
+                        </label>
+                        <button type="button" class="btn btn-info" onclick="loadAlertsList()">刷新</button>
+                        <button type="button" class="btn btn-warn" onclick="batchDeleteAlerts()" title="批量删除选中告警文件">批量删除</button>
+                        <button type="button" class="btn btn-info" onclick="batchDownloadAlerts()" title="批量下载选中告警文件">批量下载</button>
+                        <button type="button" class="btn btn-warn" onclick="clearExpiredAlerts()" title="删除超过 7 天的告警文件">清除过期</button>
+                        <button type="button" class="btn btn-danger" onclick="clearAllAlerts()" title="删除全部告警视频和图片">清除全部</button>
+                    </div>
+                    <span class="alerts-path" id="alerts-path-hint">告警文件保存路径：加载中…</span>
+                </div>
+                <p style="padding: 10px 24px; font-size: 13px; color: var(--color-text-muted); display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+                    <span>下载时将保存到浏览器默认下载目录，可在浏览器设置中修改默认下载路径。视频和图片最多保存 7 天，过期将自动清理。</span>
+                    <span id="alerts-storage-info" class="alerts-batch-info"></span>
+                </p>
+                <div id="alerts-list" class="alerts-list"></div>
+            </div>
+            
+            <!-- 视频流服务：管理 1~9 路视频流（名称 + IP） -->
+            <div id="panel-streams" class="panel">
+                <div class="streams-page">
+                    <div class="streams-header">
+                        <h2>视频流服务</h2>
+                        <p class="streams-desc">最多可配置 9 路视频流，按新增顺序填充预览九宫格通道 1～9。填写名称与地址后点击「保存」生效。</p>
+                    </div>
+                    <div class="streams-body">
+                        <div class="streams-toolbar">
+                            <button type="button" class="btn-stream-add" onclick="showAddStreamForm()">
+                                <span class="btn-stream-add-icon">+</span> 新增视频流
+                            </button>
+                            <button type="button" class="btn-stream-save-all" onclick="saveVideoStreams()">保存视频流配置</button>
+                        </div>
+                        <div id="stream-add-form" class="stream-add-form" style="display:none;">
+                            <div class="stream-add-form-inner">
+                                <div class="stream-form-row">
+                                    <label>视频流名称</label>
+                                    <input type="text" id="stream-add-name" placeholder="例如：仓库入口">
+                                </div>
+                                <div class="stream-form-row">
+                                    <label>IP / RTSP 地址</label>
+                                    <input type="text" id="stream-add-ip" placeholder="rtsp://... 或 IP">
+                                </div>
+                                <div class="stream-form-actions">
+                                    <button type="button" class="btn-stream-save-one" onclick="submitAddStream()">保存</button>
+                                    <button type="button" class="btn-stream-cancel" onclick="hideAddStreamForm()">取消</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="streams-list" class="streams-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 任务管理服务：新增检测任务（任务名称 + 一路视频流 + 多选检测器） -->
+            <div id="panel-tasks" class="panel">
+                <div class="config-toolbar">
+                    <h2>任务管理服务</h2>
+                    <div>
+                        <button type="button" class="btn-save-config" onclick="showAddTaskForm()">新增任务</button>
+                    </div>
+                </div>
+                <div id="tasks-content" class="config-content">
+                    <p class="config-help" style="margin:0 0 12px 0;">各任务独立：每个任务绑定一路视频流并选择多个检测器。保存后可直接使用；对每个任务可单独点击「启动」「停止」，无需重启系统。</p>
+                    <div id="tasks-list" class="config-section-wrap"></div>
+                    <div id="task-form-wrap" class="config-section-wrap" style="display:none;">
+                        <div class="config-section">
+                            <div class="config-section-title" id="task-form-title">新增检测任务</div>
+                            <div class="config-section-body">
+                                <div class="config-field">
+                                    <label>任务名称</label>
+                                    <input type="text" id="task-name-input" placeholder="例如：仓库入口监控">
+                                </div>
+                                <div class="config-field">
+                                    <label>视频流（通道）</label>
+                                    <select id="task-stream-select">
+                                        <option value="1">通道 1</option>
+                                        <option value="2">通道 2</option>
+                                        <option value="3">通道 3</option>
+                                        <option value="4">通道 4</option>
+                                        <option value="5">通道 5</option>
+                                        <option value="6">通道 6</option>
+                                        <option value="7">通道 7</option>
+                                        <option value="8">通道 8</option>
+                                        <option value="9">通道 9</option>
+                                    </select>
+                                </div>
+                                <div class="config-field">
+                                    <label>检测器（可多选）</label>
+                                    <div id="task-detectors-checkboxes" class="task-detector-grid"></div>
+                                </div>
+                                <div class="config-field" style="display:flex;gap:12px;margin-top:8px;">
+                                    <button type="button" class="btn-save-config" onclick="submitTaskForm()">保存任务</button>
+                                    <button type="button" class="btn-task btn-task-edit" onclick="hideTaskForm()">取消</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container" aria-hidden="true"></div>
+    <div id="app-modal-overlay" class="app-modal-overlay" aria-hidden="true">
+        <div class="app-modal">
+            <div id="app-modal-icon" class="app-modal-icon info"></div>
+            <div id="app-modal-title" class="app-modal-title"></div>
+            <div id="app-modal-body" class="app-modal-body"></div>
+            <div id="app-modal-buttons" class="app-modal-buttons"></div>
+        </div>
+    </div>
+    
+    <script>
+        let systemRunning = false;
+        let alertEventSource = null;
+        let statusEventSource = null;
+        let systemUiState = 'stopped'; // running / stopped / starting / stopping
+        let lastUserActionAt = 0;
+        let videoConnState = 'connecting'; // ok / connecting / failed / reconnecting
+        let lastVideoOkAt = 0;
+        let fpsValue = null;
+        let _fpsLastTs = 0;
+        let _fpsFrameCount = 0;
+        let streamCount = 1;
+        let previewMode = 'merged'; // merged / task
+        let videoStreams = [];
+        const MAX_VIDEO_STREAMS = 9;
+
+        // 登录：用户名 admin，密码 admin
+        var LOGIN_USER = 'admin';
+        var LOGIN_PASS = 'admin';
+        var SESSION_KEY = 'detection_system_logged_in';
+
+        function doLogin(e) {
+            e.preventDefault();
+            var username = (document.getElementById('login-username') || {}).value || '';
+            var password = (document.getElementById('login-password') || {}).value || '';
+            var errEl = document.getElementById('login-error');
+            if (username === LOGIN_USER && password === LOGIN_PASS) {
+                if (errEl) errEl.classList.remove('show');
+                try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (x) {}
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-layout').style.display = 'flex';
+                return false;
+            }
+            if (errEl) {
+                errEl.textContent = '用户名或密码错误';
+                errEl.classList.add('show');
+            }
+            return false;
+        }
+
+        (function checkLogin() {
+            try {
+                if (sessionStorage.getItem(SESSION_KEY) === '1') {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('app-layout').style.display = 'flex';
+                } else {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                    document.getElementById('app-layout').style.display = 'none';
+                    var u = document.getElementById('login-username');
+                    var p = document.getElementById('login-password');
+                    if (u) u.value = '';
+                    if (p) p.value = '';
+                }
+            } catch (x) {
+                document.getElementById('app-layout').style.display = 'flex';
+            }
+        })();
+        
+        function showAppAlert(message, type) {
+            /* 弹窗已移除，不再显示 */
+        }
+        function showAppConfirm(message, onConfirm, onCancel) {
+            if (typeof onConfirm === 'function') onConfirm();
+        }
+        
+        var alarmTypeLabels = {
+            'fall': '跌倒检测',
+            'ventilator': '呼吸机检测',
+            'fight': '打架检测',
+            'crowd': '聚集检测',
+            'helmet': '安全帽检测',
+            'window_door_inside': '门窗（仓内）',
+            'window_door_outside': '门窗（仓外）'
+        };
+        var alarmTypeIcons = {
+            'fall': '🤸',
+            'helmet': '🧢',
+            'fight': '🥊',
+            'crowd': '👥',
+            'window_door_inside': '🪟',
+            'window_door_outside': '🚪',
+            'ventilator': '😷',
+            'default': '📹'
+        };
+
+        /** 告警时间统一按北京时间显示，格式：yyyy/MM/dd HH:mm:ss */
+        function formatAlarmTime(mtime) {
+            if (mtime == null || mtime === undefined) return '';
+            var d = new Date(mtime * 1000);
+            return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        }
+
+        /** 构造报警事件展示名称：报警类别_编号（如 helmet_071309），不展示日期和时间文本 */
+        function buildAlertDisplayName(name) {
+            if (!name) return '';
+            var base = name.split('.')[0];
+            // 兼容带通道与不带通道的命名：helmet_ch2_YYYYMMDD_HHMMSS[_frame]
+            var m = base.match(/^(fall|ventilator|fight|crowd|helmet|window_door_inside|window_door_outside|window_door)(?:_ch\d+)?_(\d{8})_(\d{6})(?:_frame)?$/i);
+            if (m) {
+                var prefix = m[1].toLowerCase();
+                var hms = m[2 + 0] ? m[2 + 0] : m[2]; // 保底处理
+                var timePart = m[3] || m[2].slice(8);
+                // 只保留 HHMMSS 作为编号
+                return prefix + "_" + timePart;
+            }
+            return base;
+        }
+        
+        function switchPanel(panelId) {
+            document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+            var panel = document.getElementById('panel-' + panelId);
+            var nav = document.querySelector('.nav-item[data-panel="' + panelId + '"]');
+            if (panel) panel.classList.add('active');
+            if (nav) nav.classList.add('active');
+            if (panelId === 'alerts') loadAlertsList();
+            if (panelId === 'streams') { loadVideoStreams(); }
+            if (panelId === 'tasks') { initTaskDetectorChips(); loadTasks(); }
+            if (panelId === 'preview' && previewMode === 'task') { loadPreviewTasksDropdown(); }
+        }
+        
+        document.querySelectorAll('.nav-item').forEach(function(n) {
+            n.addEventListener('click', function() { switchPanel(this.getAttribute('data-panel')); });
+        });
+        
+        function loadAlertsList() {
+            var category = document.getElementById('alerts-category').value;
+            var channel = document.getElementById('alerts-channel').value;
+            var sort = document.getElementById('alerts-sort').value || 'desc';
+            fetch('/api/alerts/history').then(function(r) { return r.json(); }).then(function(data) {
+                var hint = document.getElementById('alerts-path-hint');
+                if (data.output_dir) hint.textContent = '告警文件保存路径：' + data.output_dir;
+                // 存储空间提示
+                var infoEl = document.getElementById('alerts-storage-info');
+                if (infoEl) {
+                    var totalSize = data.total_size || 0;
+                    var diskTotal = data.disk_total;
+                    var diskUsed = data.disk_used;
+                    var text = '当前告警文件总大小：' + formatBytes(totalSize);
+                    if (diskTotal != null && diskUsed != null) {
+                        text += ' · 磁盘使用：' + formatBytes(diskUsed) + ' / ' + formatBytes(diskTotal);
+                    }
+                    infoEl.textContent = text;
+                }
+                var items = (data.items || []).slice();
+                // 筛选
+                items = items.filter(function(x) {
+                    if (category && x.category !== category) return false;
+                    if (channel) {
+                        return String(x.channel || '') === String(channel);
+                    }
+                    return true;
+                });
+                // 排序
+                items.sort(function(a, b) {
+                    if (sort === 'asc') {
+                        return (a.mtime || 0) - (b.mtime || 0);
+                    }
+                    return (b.mtime || 0) - (a.mtime || 0);
+                });
+                var list = document.getElementById('alerts-list');
+                list.innerHTML = '';
+                items.forEach(function(x) {
+                    var card = document.createElement('div');
+                    card.className = 'alert-card';
+                    var label = alarmTypeLabels[x.category] || x.category;
+                    var icon = alarmTypeIcons[x.category] || alarmTypeIcons['default'];
+                    var timeStr = formatAlarmTime(x.mtime);
+                    var url = '/api/alerts/file?name=' + encodeURIComponent(x.name);
+                    var channelText = x.channel ? ('通道 ' + x.channel) : '通道 未知';
+                    var sizeText = (typeof x.size === 'number') ? formatBytes(x.size) : '-';
+                    var displayName = buildAlertDisplayName(x.name);
+                    var thumbHtml = '';
+                    if (x.type === 'image') {
+                        thumbHtml = '<img src="' + url + '" alt="告警图片">';
+                    } else {
+                        // 视频：如果有同名前缀的缩略图，后端会直接返回为单独的条目；这里仍然使用图标占位
+                        thumbHtml = '<div style="font-size:38px;">' + icon + '</div>';
+                    }
+                    card.innerHTML =
+                        '<div class="thumb">' +
+                            '<div style="position:absolute;top:8px;left:8px;font-size:18px;">' + icon + '</div>' +
+                            thumbHtml +
+                        '</div>' +
+                        '<div class="info">' +
+                            '<div class="name" title="' + x.name + '">' +
+                                '<input type="checkbox" class="alert-select" data-name="' + x.name.replace(/"/g, '&quot;') + '" style="margin-right:8px;vertical-align:middle;">' +
+                                displayName +
+                            '</div>' +
+                            '<div class="meta">' + label + ' · ' + channelText + ' · ' + sizeText + '</div>' +
+                            '<a class="btn-download" href="' + url + '" download="' + x.name.replace(/[^a-zA-Z0-9._-]/g, '_') + '">下载到本地</a>' +
+                        '</div>';
+                    list.appendChild(card);
+                });
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无告警文件</p><p style="font-size:13px;margin-top:8px;">系统产生的告警图片与视频将在此展示，支持按类别、通道和时间排序筛选</p></div>';
+                }
+                // 刷新后取消全选
+                var selAll = document.getElementById('alerts-select-all');
+                if (selAll) selAll.checked = false;
+            }).catch(function(e) {
+                document.getElementById('alerts-list').innerHTML = '<p style="color:#dc2626;">加载失败：' + e + '</p>';
+            });
+        }
+        document.getElementById('alerts-category').addEventListener('change', loadAlertsList);
+        var chSel = document.getElementById('alerts-channel');
+        if (chSel) chSel.addEventListener('change', loadAlertsList);
+        var sortSel = document.getElementById('alerts-sort');
+        if (sortSel) sortSel.addEventListener('change', loadAlertsList);
+
+        function getSelectedAlertNames() {
+            var boxes = document.querySelectorAll('.alert-select');
+            var names = [];
+            boxes.forEach(function(b) {
+                if (b.checked) names.push(b.getAttribute('data-name'));
+            });
+            return names;
+        }
+
+        function toggleSelectAllAlerts() {
+            var selAll = document.getElementById('alerts-select-all');
+            var checked = !!(selAll && selAll.checked);
+            document.querySelectorAll('.alert-select').forEach(function(b) {
+                b.checked = checked;
+            });
+        }
+
+        function batchDownloadAlerts() {
+            var names = getSelectedAlertNames();
+            if (!names.length) {
+                showAppAlert('请先选择要下载的告警文件', 'info');
+                return;
+            }
+            names.forEach(function(name, idx) {
+                setTimeout(function() {
+                    var a = document.createElement('a');
+                    a.href = '/api/alerts/file?name=' + encodeURIComponent(name);
+                    a.download = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }, idx * 200);
+            });
+        }
+
+        function batchDeleteAlerts() {
+            var names = getSelectedAlertNames();
+            if (!names.length) {
+                showAppAlert('请先选择要删除的告警文件', 'info');
+                return;
+            }
+            showAppConfirm('确定要删除选中的 ' + names.length + ' 个告警文件吗？此操作不可恢复。', function() {
+                fetch('/api/alerts/delete_batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ names: names })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.status === 'success') {
+                        showAppAlert(data.message || '批量删除成功', 'success');
+                        loadAlertsList();
+                    } else {
+                        showAppAlert(data.message || '批量删除失败', 'error');
+                    }
+                }).catch(function(e) {
+                    showAppAlert('批量删除失败：' + e, 'error');
+                });
+            });
+        }
+        
+        function clearExpiredAlerts() {
+            fetch('/api/alerts/cleanup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_days: 7 }) })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.status === 'success') {
+                        showAppAlert(data.deleted > 0 ? '已删除 ' + data.deleted + ' 个过期文件' : '没有过期文件', 'success');
+                        loadAlertsList();
+                    } else {
+                        showAppAlert(data.message || '清除失败', 'error');
+                    }
+                })
+                .catch(function(e) { showAppAlert('请求失败', 'error'); });
+        }
+        function clearAllAlerts() {
+            showAppConfirm('确定要删除全部告警视频和图片吗？此操作不可恢复。', function() {
+                fetch('/api/alerts/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.status === 'success') {
+                            showAppAlert(data.deleted > 0 ? '已删除 ' + data.deleted + ' 个文件' : '列表已为空', 'success');
+                            loadAlertsList();
+                        } else {
+                            showAppAlert(data.message || '清除失败', 'error');
+                        }
+                    })
+                    .catch(function(e) { showAppAlert('请求失败', 'error'); });
+            });
+        }
+        
+        // 旧的 buildStreamPathsHtml 已不再使用（改为基于名称 + IP 的视频流列表）
+
+        // 旧的视频流配置表单（支持 input_mode / stream_count 等）已移除，改用更简单的“视频流服务”页面。
+
+        // 旧的「报警参数配置」相关逻辑已移除
+
+        function formatBytes(bytes) {
+            if (bytes == null || !isFinite(bytes)) return '-';
+            var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            var idx = 0;
+            var v = bytes;
+            while (v >= 1024 && idx < units.length - 1) {
+                v /= 1024;
+                idx++;
+            }
+            return v.toFixed(1) + ' ' + units[idx];
+        }
+
+        function formatUptime(seconds) {
+            if (seconds == null || !isFinite(seconds)) return '-';
+            seconds = Math.max(0, Math.floor(seconds));
+            var days = Math.floor(seconds / 86400);
+            seconds %= 86400;
+            var hours = Math.floor(seconds / 3600);
+            seconds %= 3600;
+            var minutes = Math.floor(seconds / 60);
+            var parts = [];
+            if (days) parts.push(days + ' 天');
+            if (hours) parts.push(hours + ' 小时');
+            if (minutes) parts.push(minutes + ' 分钟');
+            if (!parts.length) parts.push('不足 1 分钟');
+            return parts.join(' ');
+        }
+
+        function showToast(ev) {
+            /* 弹窗已移除，不再显示 */
+        }
+        
+        function connectAlertStream() {
+            if (alertEventSource) try { alertEventSource.close(); } catch(e) {}
+            alertEventSource = new EventSource('/api/events');
+            alertEventSource.onmessage = function(e) {
+                try {
+                    var ev = JSON.parse(e.data);
+                    showToast(ev);
+                } catch(err) { console.warn('parse event:', err); }
+            };
+            alertEventSource.onerror = function() {
+                setTimeout(connectAlertStream, 3000);
+            };
+        }
+
+        function setSystemStatusUi(state) {
+            systemUiState = state;
+            var pill = document.getElementById('system-status-pill');
+            var text = document.getElementById('system-status-text');
+            if (!pill || !text) return;
+            pill.className = 'status-pill ' + (state || 'stopped');
+            if (state === 'running') {
+                pill.querySelector('.icon').textContent = '✅';
+                text.textContent = '运行中';
+            } else if (state === 'starting') {
+                pill.querySelector('.icon').textContent = '🔄';
+                text.textContent = '正在启动...';
+            } else if (state === 'stopping') {
+                pill.querySelector('.icon').textContent = '🔄';
+                text.textContent = '正在关闭...';
+            } else {
+                pill.querySelector('.icon').textContent = '❌';
+                text.textContent = '已停止';
+            }
+        }
+
+        function setVideoConnUi(state, extra) {
+            videoConnState = state;
+        }
+
+        function setVideoConnUi(state, extra) {
+            videoConnState = state;
+        }
+        function setFpsUi(v) {
+            /* FPS 信息框已移除 */
+        }
+
+        function startFpsMeter() {
+            var v = document.getElementById('video-hls');
+            if (!v) return;
+            if (typeof v.requestVideoFrameCallback !== 'function') return;
+            function onFrame(now, meta) {
+                _fpsFrameCount++;
+                if (!_fpsLastTs) _fpsLastTs = now;
+                var dt = now - _fpsLastTs;
+                if (dt >= 1000) {
+                    var fps = (_fpsFrameCount * 1000) / dt;
+                    fpsValue = fps;
+                    setFpsUi(fps);
+                    _fpsFrameCount = 0;
+                    _fpsLastTs = now;
+                }
+                try { v.requestVideoFrameCallback(onFrame); } catch (e) {}
+            }
+            try { v.requestVideoFrameCallback(onFrame); } catch (e) {}
+        }
+
+        function connectStatusStream() {
+            if (statusEventSource) try { statusEventSource.close(); } catch(e) {}
+            statusEventSource = new EventSource('/api/status_events');
+            statusEventSource.onmessage = function(e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    applyStatus(data, true);
+                } catch (err) {}
+            };
+            statusEventSource.onerror = function() {
+                // SSE 失败则退回轮询
+                setTimeout(connectStatusStream, 4000);
+            };
+        }
+
+        function initStreamCount() {
+            fetch('/api/video_streams').then(function(r) { return r.json(); }).then(function(data) {
+                if (data && data.status === 'success' && Array.isArray(data.streams)) {
+                    streamCount = data.streams.length || 1;
+                }
+            }).catch(function() {});
+        }
+
+        function applyStatus(data, fromSse) {
+            systemRunning = (data && data.system_running) || false;
+            if (data && data.detectors) {
+                Object.keys(data.detectors).forEach(function(name) {
+                    const detectorStatus = data.detectors[name];
+                    const toggle = document.getElementById(name + '-toggle');
+                    if (toggle && detectorStatus) {
+                        toggle.checked = detectorStatus.running || false;
+                    }
+                });
+            }
+            // 状态条：优先展示过渡态（在用户触发动作后的短时间窗口内）
+            var now = Date.now();
+            var inGrace = (now - lastUserActionAt) < 8000;
+            if (!inGrace) {
+                setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+            } else {
+                if (systemUiState === 'starting' && systemRunning) setSystemStatusUi('running');
+                if (systemUiState === 'stopping' && !systemRunning) setSystemStatusUi('stopped');
+            }
+            if (systemRunning) enableDetectorToggles(); else disableDetectorToggles();
+        }
+        
+        function showAlertsHistory() {
+            fetch('/api/alerts/history')
+                .then(r => r.json())
+                .then(function(data) {
+                    if (data.status !== 'success' || !data.items || !data.items.length) {
+                        showAppAlert('暂无历史告警记录', 'info');
+                        return;
+                    }
+                    var lines = data.items.slice(0, 20).map(function(x) {
+                        var t = x.type === 'video' ? '📹' : '🖼';
+                        return t + ' ' + x.name + ' (' + formatAlarmTime(x.mtime) + ')';
+                    });
+                    showAppAlert('最近告警文件（最多20条）：\n\n' + lines.join('\n'), 'info');
+                })
+                .catch(function(e) { showAppAlert('获取历史告警失败：' + e, 'error'); });
+        }
+        
+        function startSystem() {
+            lastUserActionAt = Date.now();
+            setSystemStatusUi('starting');
+            fetch('/api/start', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showAppAlert('系统已启动！\n✓ 实时视频流已开启\n✓ 检测器待命中\n\n可通过开关手动启用检测器', 'success');
+                        systemRunning = true;
+                        setSystemStatusUi('running');
+                        enableDetectorToggles();
+                        updateStatus();
+                    } else {
+                        setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+                        showAppAlert('启动失败：' + data.message, 'error');
+                    }
+                })
+                .catch(e => { setSystemStatusUi(systemRunning ? 'running' : 'stopped'); showAppAlert('启动失败：' + (e && e.message ? e.message : String(e)), 'error'); });
+        }
+        
+        function stopSystem() {
+            showAppConfirm('确定要停止系统吗？这将关闭所有检测器。', function() {
+                lastUserActionAt = Date.now();
+                setSystemStatusUi('stopping');
+                fetch('/api/stop', {method: 'POST'})
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showAppAlert('系统已停止', 'success');
+                            systemRunning = false;
+                            setSystemStatusUi('stopped');
+                            disableDetectorToggles();
+                            resetAllToggles();
+                            updateStatus();
+                        } else {
+                            setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+                            showAppAlert('停止失败：' + data.message, 'error');
+                        }
+                    })
+                    .catch(e => { setSystemStatusUi(systemRunning ? 'running' : 'stopped'); showAppAlert('停止失败：' + (e && e.message ? e.message : String(e)), 'error'); });
+            });
+        }
+        
+        function toggleDetector(detectorName, enabled) {
+            // 检测器启停已改为「任务管理」配置，预览页不再提供开关
+            return;
+        }
+        
+        function getDetectorDisplayName(name) {
+            const names = {
+                'fall': '跌倒检测',
+                'helmet': '安全帽检测',
+                'fight': '打架检测',
+                'crowd': '聚集检测',
+                'window_door_inside': '门窗（仓内）',
+                'window_door_outside': '门窗（仓外）',
+                'ventilator': '呼吸机检测'
+            };
+            return names[name] || name;
+        }
+        
+        function enableDetectorToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door_inside', 'window_door_outside', 'ventilator'];
+            detectors.forEach(name => {
+                const switchElem = document.getElementById(name + '-switch');
+                if (switchElem) switchElem.classList.remove('disabled');
+            });
+        }
+        
+        function disableDetectorToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door_inside', 'window_door_outside', 'ventilator'];
+            detectors.forEach(name => {
+                const switchElem = document.getElementById(name + '-switch');
+                if (switchElem) switchElem.classList.add('disabled');
+            });
+        }
+        
+        function resetAllToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door_inside', 'window_door_outside', 'ventilator'];
+            detectors.forEach(name => {
+                const toggle = document.getElementById(name + '-toggle');
+                if (toggle) toggle.checked = false;
+            });
+        }
+        
+        var hlsPlayer = null;
+        var hlsActive = false;
+        var tryHlsAttempts = 0;
+
+        function switchToMJPEG() {
+            if (hlsPlayer) {
+                try { hlsPlayer.destroy(); } catch (e) {}
+                hlsPlayer = null;
+            }
+            hlsActive = false;
+            var vh = document.getElementById('video-hls');
+            var vf = document.getElementById('video-feed');
+            if (vh) vh.style.display = 'none';
+            if (vf) { vf.style.display = 'block'; vf.src = '/video_feed'; }
+        }
+
+        function trySwitchToHLS() {
+            if (hlsActive || !window.Hls || !Hls.isSupported()) return;
+            var video = document.getElementById('video-hls');
+            var imgFeed = document.getElementById('video-feed');
+            if (!video || !imgFeed) return;
+            var url = '/hls/live.m3u8';
+            tryHlsAttempts++;
+            if (hlsPlayer) { try { hlsPlayer.destroy(); } catch (e) {} hlsPlayer = null; }
+            hlsPlayer = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hlsPlayer.loadSource(url);
+            hlsPlayer.attachMedia(video);
+            hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() {
+                hlsActive = true;
+                imgFeed.style.display = 'none';
+                video.style.display = 'block';
+                try { video.play(); } catch (e) {}
+                tryHlsAttempts = 0;
+                lastVideoOkAt = Date.now();
+                setVideoConnUi('ok');
+                startFpsMeter();
+            });
+            hlsPlayer.on(Hls.Events.ERROR, function(ev, data) {
+                if (data.fatal) {
+                    try { hlsPlayer.destroy(); } catch (e) {}
+                    hlsPlayer = null;
+                    if (hlsActive) { hlsActive = false; imgFeed.style.display = 'block'; video.style.display = 'none'; imgFeed.src = '/video_feed'; }
+                    setVideoConnUi('reconnecting');
+                }
+            });
+        }
+
+        function toggleFullView() {
+            const container = document.querySelector('.video-section');
+            if (!container) return;
+            if (document.fullscreenElement) {
+                try { document.exitFullscreen(); } catch (e) {}
+            } else {
+                try { container.requestFullscreen(); } catch (e) {}
+            }
+        }
+
+        var selectedPreviewTaskId = null;
+
+        function setPreviewMode(mode) {
+            if (mode !== 'merged' && mode !== 'task') return;
+            previewMode = mode;
+            var mergedBtn = document.getElementById('mode-merged');
+            var taskBtn = document.getElementById('mode-task');
+            var wrap = document.getElementById('preview-task-select-wrap');
+            if (mergedBtn && taskBtn) {
+                mergedBtn.classList.toggle('active', mode === 'merged');
+                taskBtn.classList.toggle('active', mode === 'task');
+            }
+            if (wrap) wrap.style.display = (mode === 'task') ? 'inline-flex' : 'none';
+            if (mode === 'merged') {
+                fetch('/api/preview_mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'merged' })
+                }).catch(function() {});
+                selectedPreviewTaskId = null;
+            } else {
+                loadPreviewTasksDropdown();
+                var sel = document.getElementById('preview-task-select');
+                if (sel && sel.value) {
+                    selectedPreviewTaskId = sel.value;
+                    fetch('/api/preview_mode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode: 'task', task_id: sel.value })
+                    }).catch(function() {});
+                } else {
+                    fetch('/api/preview_mode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode: 'task' })
+                    }).catch(function() {});
+                }
+            }
+        }
+
+        function loadPreviewTasksDropdown() {
+            var sel = document.getElementById('preview-task-select');
+            if (!sel) return;
+            fetch('/api/tasks').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status !== 'success' || !data.tasks) return;
+                var running = (data.tasks || []).filter(function(t) { return t.running; });
+                sel.innerHTML = '<option value="">-- 选择运行中的任务 --</option>';
+                running.forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = (t.name || '任务') + ' (通道 ' + (t.stream_index || 1) + ')';
+                    sel.appendChild(opt);
+                });
+                if (selectedPreviewTaskId && running.some(function(t) { return String(t.id) === String(selectedPreviewTaskId); })) {
+                    sel.value = selectedPreviewTaskId;
+                } else if (running.length > 0 && !selectedPreviewTaskId) {
+                    sel.value = running[0].id;
+                    onPreviewTaskChange();
+                }
+            }).catch(function() {});
+        }
+
+        function onPreviewTaskChange() {
+            var sel = document.getElementById('preview-task-select');
+            if (!sel) return;
+            var taskId = sel.value || null;
+            selectedPreviewTaskId = taskId;
+            fetch('/api/preview_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'task', task_id: taskId })
+            }).catch(function() {});
+        }
+
+        function renderVideoStreams() {
+            var wrap = document.getElementById('streams-list');
+            if (!wrap) return;
+            if (!Array.isArray(videoStreams)) videoStreams = [];
+            if (videoStreams.length === 0) {
+                wrap.innerHTML = '<div class="streams-empty">暂无视频流，点击「新增视频流」填写名称与地址后保存。</div>';
+                return;
+            }
+            var html = '';
+            videoStreams.forEach(function(s, idx) {
+                var name = (s && s.name) ? String(s.name).replace(/"/g, '&quot;') : ('通道 ' + (idx + 1));
+                var ip = (s && s.ip) ? String(s.ip).replace(/"/g, '&quot;') : '';
+                html += '<div class="stream-card">';
+                html += '<span class="stream-card-channel">通道 ' + (idx + 1) + '</span>';
+                html += '<div class="stream-card-name"><input type="text" data-field="name" data-index="' + idx + '" value="' + name + '" placeholder="例如：仓库入口"></div>';
+                html += '<div class="stream-card-ip"><input type="text" data-field="ip" data-index="' + idx + '" value="' + ip + '" placeholder="rtsp://... 或 IP"></div>';
+                html += '<button type="button" class="stream-card-remove" onclick="removeVideoStream(' + idx + ')">删除</button>';
+                html += '</div>';
+            });
+            wrap.innerHTML = html;
+        }
+
+        function showAddStreamForm() {
+            if (videoStreams.length >= MAX_VIDEO_STREAMS) {
+                showAppAlert('最多只能配置 ' + MAX_VIDEO_STREAMS + ' 路视频流。', 'error');
+                return;
+            }
+            document.getElementById('stream-add-name').value = '';
+            document.getElementById('stream-add-ip').value = '';
+            document.getElementById('stream-add-form').style.display = 'block';
+        }
+
+        function hideAddStreamForm() {
+            document.getElementById('stream-add-form').style.display = 'none';
+        }
+
+        function submitAddStream() {
+            var name = (document.getElementById('stream-add-name').value || '').trim();
+            var ip = (document.getElementById('stream-add-ip').value || '').trim();
+            if (!ip) {
+                showAppAlert('请填写 IP / RTSP 地址。', 'error');
+                return;
+            }
+            if (!name) name = '通道 ' + (videoStreams.length + 1);
+            videoStreams.push({ name: name, ip: ip });
+            hideAddStreamForm();
+            renderVideoStreams();
+            showAppAlert('已添加视频流，请点击「保存视频流配置」写入服务器。', 'success');
+        }
+
+        function syncVideoStreamsFromInputs() {
+            var wrap = document.getElementById('streams-list');
+            if (!wrap) return;
+            var rows = [];
+            wrap.querySelectorAll('input[data-field="ip"]').forEach(function(inp) {
+                var idx = parseInt(inp.getAttribute('data-index'), 10) || 0;
+                if (!rows[idx]) rows[idx] = {};
+                rows[idx].ip = (inp.value || '').trim();
+            });
+            wrap.querySelectorAll('input[data-field="name"]').forEach(function(inp) {
+                var idx = parseInt(inp.getAttribute('data-index'), 10) || 0;
+                if (!rows[idx]) rows[idx] = {};
+                rows[idx].name = (inp.value || '').trim();
+            });
+            videoStreams = rows.filter(function(s) { return s && (s.name || s.ip); });
+        }
+
+        function loadVideoStreams() {
+            fetch('/api/video_streams').then(function(r) { return r.json(); }).then(function(data) {
+                if (!data || data.status !== 'success') {
+                    var wrap = document.getElementById('streams-list');
+                    if (wrap) wrap.innerHTML = '<div class="streams-empty">加载视频流配置失败</div>';
+                    return;
+                }
+                videoStreams = Array.isArray(data.streams) ? data.streams.slice(0, MAX_VIDEO_STREAMS) : [];
+                renderVideoStreams();
+            }).catch(function(e) {
+                var wrap = document.getElementById('streams-list');
+                if (wrap) wrap.innerHTML = '<div class="streams-empty">加载失败：' + e + '</div>';
+            });
+        }
+
+        function addVideoStream() {
+            showAddStreamForm();
+        }
+
+        function removeVideoStream(idx) {
+            if (!Array.isArray(videoStreams)) return;
+            videoStreams.splice(idx, 1);
+            renderVideoStreams();
+        }
+
+        function saveVideoStreams() {
+            syncVideoStreamsFromInputs();
+            if (!Array.isArray(videoStreams) || videoStreams.length === 0) {
+                showAppAlert('请至少配置一路视频流。', 'error');
+                return;
+            }
+            var payload = {
+                streams: videoStreams
+                    .map(function(s, i) {
+                        return {
+                            name: (s.name || ('通道 ' + (i + 1))).trim(),
+                            ip: (s.ip || '').trim()
+                        };
+                    })
+                    .filter(function(s) { return s.ip; })
+            };
+            if (!payload.streams.length) {
+                showAppAlert('每一路视频流都需要填写 IP / RTSP 地址。', 'error');
+                return;
+            }
+            fetch('/api/video_streams', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') {
+                    showAppAlert(data.message || '视频流配置已保存', 'success');
+                    // 重新拉取一次，确保与后端保持一致
+                    loadVideoStreams();
+                } else {
+                    showAppAlert(data.message || '保存失败', 'error');
+                }
+            }).catch(function(e) {
+                showAppAlert('保存失败：' + e, 'error');
+            });
+        }
+
+        var TASK_DETECTOR_LABELS = {
+            'fall': '跌倒检测',
+            'helmet': '安全帽检测',
+            'fight': '打架检测',
+            'crowd': '聚集检测',
+            'window_door_inside': '门窗（仓内）',
+            'window_door_outside': '门窗（仓外）',
+            'ventilator': '呼吸机检测'
+        };
+        var TASK_DETECTOR_ICONS = {
+            'fall': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M8 18l4-4 4 4"/><circle cx="12" cy="14" r="3"/></svg>',
+            'helmet': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 8v4h16V8L12 2z"/><path d="M4 12h16v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6z"/></svg>',
+            'fight': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9l-6 6M9 9l6 6"/><circle cx="12" cy="12" r="10"/></svg>',
+            'crowd': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><circle cx="16" cy="8" r="2.5"/><path d="M4 20v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>',
+            'window_door_inside': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>',
+            'window_door_outside': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21V5a2 2 0 012-2h6a2 2 0 012 2v16"/><path d="M7 9h10"/></svg>',
+            'ventilator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 00-4 4v2h8V6a4 4 0 00-4-4z"/><path d="M4 12v6a2 2 0 002 2h12a2 2 0 002-2v-6"/><path d="M8 14h8"/></svg>'
+        };
+        var TASK_DETECTOR_ORDER = ['fall', 'helmet', 'fight', 'crowd', 'window_door_inside', 'window_door_outside', 'ventilator'];
+        var editingTaskId = null;
+
+        function initTaskDetectorChips() {
+            var wrap = document.getElementById('task-detectors-checkboxes');
+            if (!wrap || wrap.children.length) return;
+            TASK_DETECTOR_ORDER.forEach(function(key) {
+                var label = TASK_DETECTOR_LABELS[key] || key;
+                var icon = TASK_DETECTOR_ICONS[key] || '';
+                var chip = document.createElement('label');
+                chip.className = 'task-detector-chip';
+                chip.setAttribute('data-detector', key);
+                chip.innerHTML = '<input type="checkbox" name="task-det" value="' + key + '">' +
+                    '<span class="chip-icon">' + icon + '</span>' +
+                    '<span class="chip-label">' + label + '</span>';
+                chip.onclick = function(e) {
+                    e.preventDefault();
+                    var cb = chip.querySelector('input');
+                    if (!cb) return;
+                    cb.checked = !cb.checked;
+                    chip.classList.toggle('checked', cb.checked);
+                };
+                chip.querySelector('input').addEventListener('change', function() {
+                    chip.classList.toggle('checked', chip.querySelector('input').checked);
+                });
+                wrap.appendChild(chip);
+            });
+        }
+        function syncTaskDetectorChipState() {
+            document.querySelectorAll('#task-detectors-checkboxes .task-detector-chip').forEach(function(chip) {
+                var cb = chip.querySelector('input[name="task-det"]');
+                chip.classList.toggle('checked', cb && cb.checked);
+            });
+        }
+
+        function loadTasks() {
+            fetch('/api/tasks').then(function(r) { return r.json(); }).then(function(data) {
+                if (!data || data.status !== 'success') {
+                    var el = document.getElementById('tasks-list');
+                    if (el) el.innerHTML = '<p>加载任务列表失败</p>';
+                    return;
+                }
+                renderTasksList(data.tasks || []);
+            }).catch(function(e) {
+                var el = document.getElementById('tasks-list');
+                if (el) el.innerHTML = '<p>加载失败：' + e + '</p>';
+            });
+        }
+
+        function renderTasksList(tasks) {
+            var wrap = document.getElementById('tasks-list');
+            if (!wrap) return;
+            if (!tasks.length) {
+                wrap.innerHTML = '<div class="config-section"><div class="config-section-body"><div class="task-empty-state"><span class="task-empty-icon">📋</span><p>暂无检测任务</p><p class="task-empty-hint">点击右上角「新增任务」添加</p></div></div></div>';
+                return;
+            }
+            var html = '<div class="config-section"><div class="config-section-title">已配置任务</div><div class="config-section-body">';
+            tasks.forEach(function(t) {
+                var name = (t.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var streamLabel = '通道 ' + (t.stream_index || 1);
+                var dets = (t.detectors || []).map(function(d) { return TASK_DETECTOR_LABELS[d] || d; }).join('、') || '无';
+                var tid = (t.id || '').replace(/'/g, "\\'");
+                html += '<div class="task-item">';
+                html += '<div class="task-item-info">';
+                html += '<div class="task-item-name">' + name + '</div>';
+                html += '<div class="task-item-meta">';
+                html += '<span class="meta-badge channel">' + streamLabel + '</span>';
+                html += '<span class="meta-badge detectors">' + dets + '</span>';
+                html += '</div></div>';
+                html += '<div class="task-item-actions">';
+                html += '<span class="task-item-status ' + (t.running ? 'running' : 'stopped') + '">' + (t.running ? '运行中' : '已停止') + '</span>';
+                if (t.running) {
+                    html += '<button type="button" class="btn-task btn-task-stop" onclick="stopTask(\'' + tid + '\')">停止</button>';
+                } else {
+                    html += '<button type="button" class="btn-task btn-task-start" onclick="startTask(\'' + tid + '\')">启动</button>';
+                }
+                html += '<button type="button" class="btn-task btn-task-edit" onclick="editTask(\'' + tid + '\')">编辑</button>';
+                html += '<button type="button" class="btn-task btn-task-delete" onclick="deleteTask(\'' + tid + '\')">删除</button>';
+                html += '</div></div>';
+            });
+            html += '</div></div>';
+            wrap.innerHTML = html;
+        }
+
+        function showAddTaskForm() {
+            editingTaskId = null;
+            document.getElementById('task-form-title').textContent = '新增检测任务';
+            document.getElementById('task-name-input').value = '';
+            document.getElementById('task-stream-select').value = '1';
+            document.querySelectorAll('#task-detectors-checkboxes input[name="task-det"]').forEach(function(cb) { cb.checked = false; });
+            syncTaskDetectorChipState();
+            document.getElementById('task-form-wrap').style.display = 'block';
+        }
+
+        function hideTaskForm() {
+            document.getElementById('task-form-wrap').style.display = 'none';
+            editingTaskId = null;
+        }
+
+        function submitTaskForm() {
+            var name = (document.getElementById('task-name-input').value || '').trim();
+            if (!name) {
+                showAppAlert('请输入任务名称', 'error');
+                return;
+            }
+            var streamIndex = parseInt(document.getElementById('task-stream-select').value, 10) || 1;
+            var detectors = [];
+            document.querySelectorAll('#task-detectors-checkboxes input[name="task-det"]:checked').forEach(function(cb) {
+                detectors.push(cb.value);
+            });
+            if (!detectors.length) {
+                showAppAlert('请至少选择一个检测器', 'error');
+                return;
+            }
+            var payload = { name: name, stream_index: streamIndex, detectors: detectors };
+            var url = '/api/tasks';
+            var method = 'POST';
+            if (editingTaskId) {
+                payload.id = editingTaskId;
+                url = '/api/tasks/update';
+                method = 'POST';
+            }
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') {
+                    hideTaskForm();
+                    loadTasks();
+                }
+            }).catch(function() {});
+        }
+
+        function startTask(id) {
+            fetch('/api/tasks/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') loadTasks();
+            }).catch(function() {});
+        }
+
+        function stopTask(id) {
+            fetch('/api/tasks/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') loadTasks();
+            }).catch(function() {});
+        }
+
+        function editTask(id) {
+            fetch('/api/tasks').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status !== 'success' || !data.tasks) return;
+                var t = data.tasks.filter(function(x) { return String(x.id) === String(id); })[0];
+                if (!t) return;
+                editingTaskId = t.id;
+                document.getElementById('task-form-title').textContent = '编辑检测任务';
+                document.getElementById('task-name-input').value = t.name || '';
+                document.getElementById('task-stream-select').value = String(t.stream_index || 1);
+                document.querySelectorAll('#task-detectors-checkboxes input[name="task-det"]').forEach(function(cb) {
+                    cb.checked = (t.detectors || []).indexOf(cb.value) >= 0;
+                });
+                syncTaskDetectorChipState();
+                document.getElementById('task-form-wrap').style.display = 'block';
+            });
+        }
+
+        function deleteTask(id) {
+            showAppConfirm('确定要删除该任务吗？删除后需重启系统生效。', function() {
+                fetch('/api/tasks/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.status === 'success') {
+                        showAppAlert('已删除', 'success');
+                        loadTasks();
+                    } else {
+                        showAppAlert(data.message || '删除失败', 'error');
+                    }
+                }).catch(function(e) {
+                    showAppAlert('删除失败：' + e, 'error');
+                });
+            });
+        }
+
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    applyStatus(data, false);
+                    if (systemRunning) {
+                        if (!hlsActive && window.Hls && Hls.isSupported() && (tryHlsAttempts === 0 || tryHlsAttempts % 5 === 0))
+                            trySwitchToHLS();
+                    } else {
+                        if (hlsActive) switchToMJPEG();
+                    }
+                    console.log('系统状态:', data);
+                })
+                .catch(e => console.error('获取状态失败：', e));
+        }
+
+        function updateVideoOverlayHealth() {
+            // 连接状态 / FPS 已在后端叠加到九宫格画面，这里保持空实现即可
+            return;
+        }
+        
+        window.onload = function() {
+            disableDetectorToggles();
+            resetAllToggles();
+            updateStatus();
+            connectAlertStream();
+            connectStatusStream();
+            setSystemStatusUi('stopped');
+            initStreamCount();
+            // 轮询作为兜底（SSE 中断时仍能更新）
+            setInterval(updateStatus, 2000);
+            setInterval(updateVideoOverlayHealth, 1000);
+        };
+    </script>
+</body>
+</html>

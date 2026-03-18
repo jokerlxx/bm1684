@@ -1,0 +1,193 @@
+{
+  "fps": 20,
+  "models": {
+    "fall_detection": "/home/admin/workspace/model/fall_f16.bmodel",
+    "ventilator_equipment": "/home/admin/workspace/model/mask_fp32_1b.bmodel",
+    "ventilator_helmet": "/home/admin/workspace/model/helmet_f16.bmodel",
+    "fight_detection": "/home/admin/workspace/model/fight_fp32.bmodel",
+    "crowd_person": "/home/admin/workspace/model/mao_fp32_1b.bmodel",
+    "helmet_detection": "/home/admin/workspace/model/helmet_f16.bmodel",
+    "window_door_inside": "/home/admin/workspace/model/window_in_f16.bmodel",
+    "window_door_outside": "/home/admin/workspace/model/window_out_f16.bmodel",
+    "_comment_window_door": "window_door_inside=仓内门窗, window_door_outside=仓外门窗；兼容旧配置时可保留 window_door_detection 作为两者默认值"
+  },
+  "fall_detection": {
+    "conf_threshold": 0.3,
+    "observation_duration": 1.5,
+    "fall_threshold": 0.5,
+    "cooldown_duration": 180,
+    "large_bbox_conf": 0.3,
+    "small_bbox_conf": 0.3,
+    "_comment": "observation_duration=5秒，fall_threshold=80%跌倒率"
+  },
+  "ventilator_detection": {
+    "equipment_conf": 0.3,
+    "person_conf": 0.3,
+    "observation_duration": 1.0,
+    "pass_threshold": 0.2,
+    "fail_threshold": 0.5,
+    "cooldown_duration": 180,
+    "use_helmet_detection": "true",
+    "mask_iou_threshold": 0.15,
+    "tank_distance_coefficient": 2,
+    "tank_x_offset_coefficient": 1,
+    "_comment_1": "observation_duration=1.5秒，pass_threshold=20%佩戴率通过，fail_threshold=50%未佩戴率触发警报",
+    "_comment_2": "use_helmet_detection=true 启用安全帽检测代替人员检测",
+    "_comment_3": "mask_iou_threshold=0.15 面罩与头部IoU阈值（推荐0.1~0.2）",
+    "_comment_4": "tank_distance_coefficient=2.0 氧气瓶距离系数（距离=系数*头部高度，推荐1.5~2.5）",
+    "_comment_5": "tank_x_offset_coefficient=1.0 氧气瓶X偏差系数（推荐0.8~1.2）"
+  },
+  "fight_detection": {
+    "conf_threshold": 0.3,
+    "observation_duration": 1.0,
+    "fight_threshold": 0.3,
+    "cooldown_duration": 180,
+    "alarm_frames": 3
+  },
+  "crowd_detection": {
+    "person_conf": 0.3,
+    "eps_pixels": 100,
+    "min_samples": 3,
+    "stability_duration": 1,
+    "cooldown_duration": 30,
+    "spatial_distance": 50
+  },
+  "helmet_detection": {
+    "conf_threshold": 0.3,
+    "iou_threshold": 0.3,
+    "max_age": 2,
+    "alert_duration": 1,
+    "cooldown_duration": 180
+  },
+  "window_door_detection": {
+    "conf_threshold": 0.3,
+    "iou_threshold": 0.3,
+    "max_age": 2,
+    "observation_frames": 15,
+    "detection_threshold": 0.5,
+    "cooldown_duration": 180
+  },
+  "output": {
+    "video_output_dir": "alarm_videos",
+    "display_port": 5015,
+    "font_path": "simhei.ttf",
+    "hls_output_dir": "hls_output",
+    "hls_time": 2,
+    "hls_list_size": 8,
+    "alert_box_mode": "blink",
+    "_comment_alert_box_mode": "报警框显示模式：\"blink\"=跳帧/闪烁显示，\"follow\"=每帧跟随显示"
+  },
+  "_comment_queue_latency": "frame_queue 小可降低端到端延迟；2~3 在保证不卡顿前提下尽量低延迟",
+  "detection_inference_subsample": 2,
+  "_comment_subsample": "检测器推理采样间隔，1=每帧推理，2=每2帧推理1次，降低BM1684x负载",
+  "queue_sizes": {
+    "frame_queue": 5,
+    "result_queue": 1,
+    "display_queue": 1,
+    "encoder_queue": 1
+  },
+  "bm1684x": {
+    "device_id": 0,
+    "enable_sophon": true
+  },
+  "video_streams": [
+    {
+      "name": "通道 1",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    },
+    {
+      "name": "通道2",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    },
+    {
+      "name": "通道3",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    },
+    {
+      "name": "通道4",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    },
+    {
+      "name": "通道5",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    },
+    {
+      "name": "通道6",
+      "ip": "rtsp://admin:1q2w3e4r@192.168.150.65:554/Streaming/Channels/102"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t_1772772831000",
+      "name": "通道1",
+      "stream_index": 1,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772772847088",
+      "name": "通道2",
+      "stream_index": 2,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772773109811",
+      "name": "通道3",
+      "stream_index": 3,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772774054545",
+      "name": "通道4",
+      "stream_index": 4,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772776271148",
+      "name": "通道5",
+      "stream_index": 5,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772776282596",
+      "name": "通道6",
+      "stream_index": 6,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772776296020",
+      "name": "通道7",
+      "stream_index": 7,
+      "detectors": [
+        "window_door_outside"
+      ]
+    },
+    {
+      "id": "t_1772782549410",
+      "name": "通道8",
+      "stream_index": 8,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1772782560532",
+      "name": "通道9",
+      "stream_index": 9,
+      "detectors": [
+        "helmet"
+      ]
+    }
+  ]
+}

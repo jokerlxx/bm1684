@@ -1,0 +1,32 @@
+{
+  "fall": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  },
+  "ventilator": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  },
+  "fight": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  },
+  "crowd": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  },
+  "helmet": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  },
+  "window_door": {
+    "enabled": false,
+    "start": "08:00",
+    "end": "18:00"
+  }
+}

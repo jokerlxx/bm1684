@@ -1,0 +1,14 @@
+在 main.py 的页面样式中做了这些修改（仅改字号和少量间距，逻辑不变）：
+区域                            	原字号	                   字号	                                      说明
+副标题(.subtitle)	                13px	                  16px	                          顶部「支持时间段自动启动…」
+场景标题(.scene-title)	            20px	                  22px	                           「日常场景」「工作场景」
+场景图标(.scene-icon)	            24px	                  26px	                            与场景标题同行的图标
+任务名称(.detector-card h3)	        16px	                  18px	                         「跌倒检测」「安全帽检测」等
+任务名称图标(.detector-name .icon)	20px	                  22px            	              任务前的 emoji 图标
+任务描述(.detector-description)	    12px	                 15px	                       「实时监控人员跌倒…」等说明
+时间段标签 (.timeslot-label)	    13px	                  15px	                           「自动调度」等标签
+时间输入框 (.time-input)	        13px	                  15px，padding 8px 12px      	「08:00」「18:00」及输入框
+时间分隔符 (.time-separator)	    未设	                   15px	                                 「至」字
+状态文字 (.timeslot-status)     	11px	                  14px	                              「● 时间段未启用」等状态
+保存按钮 (.btn-save-timeslot)   12px，padding 4px 12px      14px，padding 6px 14px	               「保存」按钮
+顶部按钮 (.btn)                 	14px	                16px	                           「▶ 启动系统」「■ 停止」「🔄 刷新」

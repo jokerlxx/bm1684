@@ -1,0 +1,2770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>多任务检测系统 - 时间段自动开关版</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+    <style>
+        :root {
+            --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --color-bg: #f8fafc;
+            --color-surface: #ffffff;
+            --color-border: #e2e8f0;
+            --color-text: #1e293b;
+            --color-text-muted: #64748b;
+            --color-primary: #4f46e5;
+            --color-primary-hover: #4338ca;
+            --color-success: #059669;
+            --color-success-hover: #047857;
+            --color-danger: #dc2626;
+            --color-danger-hover: #b91c1c;
+            --color-sidebar: #1e293b;
+            --color-sidebar-hover: #334155;
+            --color-accent: #6366f1;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-sans);
+            background: linear-gradient(145deg, #e0e7ff 0%, #f0f4ff 50%, #e2e8f0 100%);
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            color: var(--color-text);
+            -webkit-font-smoothing: antialiased;
+        }
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar {
+            width: 80px;
+            background: var(--color-sidebar);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 24px;
+            gap: 2px;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+        }
+        .nav-item {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 8px;
+            color: #94a3b8;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+            background: none;
+            transition: color 0.2s, background 0.2s;
+        }
+        .nav-item:hover { color: #f1f5f9; background: var(--color-sidebar-hover); }
+        .nav-item.active { color: #fff; }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 32px;
+            width: 4px;
+            background: var(--color-accent);
+            border-radius: 0 4px 4px 0;
+        }
+        .nav-item .nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 6px;
+            opacity: 0.9;
+        }
+        .nav-item .nav-icon svg { width: 100%; height: 100%; }
+        .content-area {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--color-surface);
+            border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+        .panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .panel.active { display: flex; }
+        .container {
+            max-width: 100%;
+            height: calc(100vh - 24px);
+            margin: 0 auto;
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+        h1 {
+            color: var(--color-text);
+            margin-bottom: 8px;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            color: var(--color-text-muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .main-content {
+            display: flex;
+            gap: 24px;
+            flex: 1;
+            min-height: 0;
+        }
+        .video-section {
+            flex: 0 0 65%;
+            background: #0f172a;
+            border-radius: var(--radius-md);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        #video-feed, #video-hls {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border: none;
+            outline: none;
+            display: block;
+        }
+        #video-hls { background: #0f172a; }
+        .control-section {
+            flex: 0 0 35%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .control-section::-webkit-scrollbar { width: 8px; }
+        .control-section::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .control-section::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        .system-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        .scene-group {
+            background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+        }
+        .scene-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .scene-icon { font-size: 22px; }
+        .daily-group .scene-title { color: var(--color-primary); border-bottom-color: #818cf8; }
+        .work-group .scene-title { color: var(--color-success); border-bottom-color: #34d399; }
+        .detector-buttons { display: flex; flex-direction: column; gap: 14px; }
+        .detector-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        .daily-group .detector-card:hover {
+            border-color: #818cf8;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+            transform: translateY(-1px);
+        }
+        .work-group .detector-card:hover {
+            border-color: #34d399;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.12);
+            transform: translateY(-1px);
+        }
+        .detector-card h3 {
+            margin-bottom: 10px;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .detector-name { display: flex; align-items: center; gap: 8px; }
+        .detector-name .icon { font-size: 20px; }
+        .detector-description {
+            font-size: 14px;
+            color: var(--color-text-muted);
+            margin-top: 8px;
+            line-height: 1.55;
+        }
+        .timeslot-config {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--color-border);
+        }
+        .timeslot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .timeslot-label { font-size: 14px; font-weight: 600; color: var(--color-text-muted); display: flex; align-items: center; gap: 6px; }
+        .timeslot-inputs { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        .time-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            text-align: center;
+            font-family: var(--font-sans);
+        }
+        .time-input:focus { outline: none; border-color: var(--color-primary); }
+        .time-separator { font-size: 14px; font-weight: 600; color: var(--color-text-muted); }
+        .timeslot-status { font-size: 13px; color: var(--color-text-muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+        .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .status-indicator.active { background: var(--color-success); animation: pulse 2s infinite; }
+        .status-indicator.inactive { background: var(--color-danger); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .btn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .btn-start { background: var(--color-success); color: #fff; flex: 1; }
+        .btn-start:hover { background: var(--color-success-hover); }
+        .btn-stop { background: var(--color-danger); color: #fff; flex: 1; }
+        .btn-stop:hover { background: var(--color-danger-hover); }
+        .btn-info { background: var(--color-primary); color: #fff; flex: 1; }
+        .btn-info:hover { background: var(--color-primary-hover); }
+        .btn-warn { background: #d97706; color: #fff; }
+        .btn-warn:hover { background: #b45309; }
+        .btn-danger { background: var(--color-danger); color: #fff; }
+        .btn-danger:hover { background: var(--color-danger-hover); }
+        .btn-save-timeslot {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--color-primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-save-timeslot:hover { background: var(--color-primary-hover); }
+        .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #cbd5e1;
+            transition: 0.25s;
+            border-radius: 26px;
+        }
+        .toggle-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            transition: 0.25s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider { background: var(--color-success); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .toggle-switch.disabled { opacity: 0.5; cursor: not-allowed; }
+        .toggle-switch.disabled .slider { cursor: not-allowed; }
+
+        /* ========== 主界面系统状态条 ========== */
+        .system-status-wrap {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .system-status-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            border: 1px solid rgba(226,232,240,0.9);
+            background: rgba(255,255,255,0.85);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .status-pill .icon { font-size: 14px; }
+        .status-pill.running { color: #065f46; border-color: rgba(5,150,105,0.35); background: rgba(209,250,229,0.6); }
+        .status-pill.stopped { color: #7f1d1d; border-color: rgba(220,38,38,0.35); background: rgba(254,226,226,0.65); }
+        .status-pill.starting { color: #92400e; border-color: rgba(245,158,11,0.4); background: rgba(254,243,199,0.75); }
+        .status-pill.stopping { color: #92400e; border-color: rgba(245,158,11,0.4); background: rgba(254,243,199,0.75); }
+        .status-pill.running:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+        }
+
+        /* ========== 视频叠加信息：连接状态 + FPS ========== */
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 12px;
+        }
+        .video-overlay .badge {
+            pointer-events: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.65);
+            color: #e2e8f0;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            backdrop-filter: blur(8px);
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        }
+        .video-overlay .badge .muted { font-weight: 600; color: rgba(226,232,240,0.85); }
+        .video-overlay .badge.ok { border-color: rgba(34,197,94,0.35); }
+        .video-overlay .badge.warn { border-color: rgba(245,158,11,0.35); }
+        .video-overlay .badge.bad { border-color: rgba(239,68,68,0.35); }
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 18px 22px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #f8fafc;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            max-width: 380px;
+            min-width: 300px;
+            animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 5px solid var(--color-danger);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            pointer-events: auto; /* 允许点击跳转 */
+            cursor: pointer;
+        }
+        .toast::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--color-danger), rgba(220, 38, 38, 0.3));
+        }
+        .toast .toast-type {
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+        }
+        .toast .toast-type::before {
+            content: '🚨';
+            font-size: 18px;
+            filter: drop-shadow(0 2px 4px rgba(220, 38, 38, 0.4));
+        }
+        .toast .toast-time {
+            font-size: 12px;
+            color: #94a3b8;
+            opacity: 0.85;
+            font-weight: 500;
+        }
+        @keyframes toast-in {
+            from {
+                opacity: 0;
+                transform: translateX(40px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+        @keyframes toast-out {
+            from {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(40px) scale(0.95);
+            }
+        }
+        /* 统一弹窗：无黑框，与界面风格一致 */
+        .app-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: var(--font-sans);
+        }
+        .app-modal-overlay.show { display: flex; }
+        .app-modal {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            min-width: 320px;
+            max-width: 440px;
+            overflow: hidden;
+        }
+        .app-modal-icon {
+            width: 48px;
+            height: 48px;
+            margin: 24px auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .app-modal-icon.success { background: #d1fae5; color: #059669; }
+        .app-modal-icon.error { background: #fee2e2; color: #dc2626; }
+        .app-modal-icon.info { background: #e0e7ff; color: var(--color-primary); }
+        .app-modal-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text);
+            padding: 0 24px 8px;
+        }
+        .app-modal-body {
+            text-align: center;
+            font-size: 14px;
+            color: var(--color-text-muted);
+            padding: 0 24px 24px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .app-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            padding: 0 24px 24px;
+        }
+        .app-modal-buttons .btn-modal {
+            padding: 10px 24px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-sans);
+            transition: background 0.2s;
+        }
+        .app-modal-buttons .btn-modal-primary {
+            background: var(--color-primary);
+            color: #fff;
+        }
+        .app-modal-buttons .btn-modal-primary:hover { background: var(--color-primary-hover); }
+        .app-modal-buttons .btn-modal-secondary {
+            background: var(--color-border);
+            color: var(--color-text);
+        }
+        .app-modal-buttons .btn-modal-secondary:hover { background: #cbd5e1; }
+        .alerts-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--color-border);
+            flex-wrap: wrap;
+            background: #f8fafc;
+        }
+        .alerts-toolbar label { font-weight: 600; color: var(--color-text); font-size: 14px; }
+        .alerts-toolbar select {
+            padding: 10px 14px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            min-width: 150px;
+        }
+        .alerts-path { font-size: 13px; color: var(--color-text-muted); }
+        .alerts-toolbar-group { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .alerts-batch-info { font-size: 13px; color: var(--color-text-muted); }
+        .alerts-list {
+            flex: 0 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 18px;
+            align-content: start;
+        }
+        .alerts-list .alert-card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .alerts-list .alert-card:hover { box-shadow: var(--shadow-md); }
+        .alerts-list .alert-card .thumb {
+            width: 100%;
+            height: 130px;
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-size: 40px;
+        }
+        .alerts-list .alert-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .alerts-list .alert-card .info { padding: 12px; }
+        .alerts-list .alert-card .name { font-size: 13px; font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .alerts-list .alert-card .meta { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
+        .alerts-list .alert-card .btn-download {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--color-primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .alerts-list .alert-card .btn-download:hover { background: var(--color-primary-hover); }
+        .config-toolbar {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+        .config-toolbar h2 {
+            font-size: 20px;
+            font-weight: 750;
+            color: var(--color-text);
+            display:flex;
+            align-items:center;
+            gap:8px;
+        }
+        .config-content { flex: 1; overflow-y: auto; padding: 24px; }
+        .config-section {
+            background: linear-gradient(135deg, #f9fafb 0%, #eef2ff 50%, #f9fafb 100%);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: var(--radius-lg);
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+            transform: translateY(0);
+            transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+        }
+        .config-section:hover {
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+            transform: translateY(-2px);
+            border-color: rgba(129, 140, 248, 0.7);
+        }
+        .config-section-title {
+            padding: 16px 22px;
+            background: #f1f5f9;
+            font-weight: 650;
+            color: var(--color-text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+        }
+        .config-section-body { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+        .config-field { display: flex; flex-direction: column; gap: 6px; }
+        .config-field label {
+            font-size: 14px;
+            font-weight: 550;
+            color: var(--color-text-muted);
+            display:flex;
+            align-items:center;
+            gap:6px;
+            line-height: 1.5;
+        }
+        .config-help {
+            font-size: 14px;
+            cursor: default;
+            color: #9ca3af;
+        }
+        .config-help:hover {
+            color: var(--color-primary);
+        }
+        .config-field input {
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-sans);
+        }
+        .config-field input:focus { outline: none; border-color: var(--color-primary); }
+        .btn-save-config {
+            padding: 10px 24px;
+            background: var(--color-success);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 14px;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-save-config:hover { background: var(--color-success-hover); }
+        .config-section-wrap { margin-bottom: 24px; }
+        .config-stream-paths { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .config-stream-paths .config-field { min-width: 0; }
+        /* 系统信息资源条 */
+        .resource-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            flex-wrap: nowrap;
+        }
+        .resource-bar-bg {
+            flex: 1;
+            height: 10px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            overflow: hidden;
+            position: relative;
+        }
+        .resource-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+        }
+        .resource-bar-text {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            min-width: 90px;
+            text-align: right;
+            white-space: nowrap;
+        }
+        /* 系统信息 - 硬件资源：四块分栏卡片，间距更大，避免挤压重叠 */
+        #panel-system .sys-res-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(240px, 1fr));
+            gap: 16px 22px;
+            align-items: start;
+        }
+        #panel-system .sys-res-grid .config-field {
+            background: rgba(255, 255, 255, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 16px;
+            padding: 14px 14px 12px;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+        }
+        #panel-system #res-disk-path,
+        #panel-system #res-tpu-note {
+            line-height: 1.6;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        @media (max-width: 1400px) {
+            #panel-system .sys-res-grid { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+        }
+        @media (max-width: 900px) {
+            #panel-system .sys-res-grid { grid-template-columns: 1fr; }
+        }
+        /* 刷新按钮加载动画 */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn-refresh-loading {
+            position: relative;
+        }
+        .btn-refresh-loading::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            width: 14px;
+            height: 14px;
+            margin-top: -7px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.6);
+            border-top-color: rgba(255,255,255,1);
+            animation: spin 0.6s linear infinite;
+        }
+        /* 报警事件面板允许整体滚动，避免卡片被压缩过小或无法点击 */
+        #panel-alerts {
+            overflow-y: auto;
+        }
+        .empty-state {
+            padding: 48px 24px;
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+
+        /* ========== 登录界面 ========== */
+        #login-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            background: linear-gradient(145deg, #e0e7ff 0%, #f0f4ff 50%, #e2e8f0 100%);
+            font-family: var(--font-sans);
+        }
+        #login-screen.hidden { display: none; }
+        .login-left {
+            width: 460px;
+            min-width: 380px;
+            background: var(--color-surface);
+            box-shadow: 8px 0 32px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            padding: 52px 56px;
+            justify-content: center;
+            position: relative;
+        }
+        .login-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 44px;
+            letter-spacing: -0.02em;
+            text-align: center;
+        }
+        .login-logo span { color: var(--color-primary); }
+        .login-sub { font-size: 14px; color: var(--color-text-muted); margin-bottom: 32px; text-align: center; }
+        .login-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 36px;
+            text-align: center;
+        }
+        .login-form .field-wrap {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 0 18px;
+            margin-bottom: 20px;
+            height: 50px;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .login-form .field-wrap:focus-within {
+            border-color: var(--color-primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+        .login-form .field-wrap .icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 14px;
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+        }
+        .login-form .field-wrap input {
+            flex: 1;
+            border: none;
+            font-size: 15px;
+            font-family: var(--font-sans);
+            color: var(--color-text);
+            background: transparent;
+        }
+        .login-form .field-wrap input::placeholder { color: #94a3b8; }
+        .login-form .field-wrap input:focus { outline: none; }
+        .login-forgot { text-align: right; margin-bottom: 24px; }
+        .login-forgot a {
+            color: var(--color-text-muted);
+            font-size: 14px;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .login-forgot a:hover { color: var(--color-primary); }
+        .login-btn {
+            width: 100%;
+            height: 50px;
+            border: none;
+            border-radius: var(--radius-md);
+            background: var(--color-primary);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover { background: var(--color-primary-hover); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35); }
+        .login-disclaimer {
+            margin-top: 24px;
+            font-size: 12px;
+            color: var(--color-text-muted);
+            text-align: center;
+            line-height: 1.6;
+        }
+        .login-error {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #fef2f2;
+            color: var(--color-danger);
+            font-size: 14px;
+            border-radius: var(--radius-sm);
+            display: none;
+        }
+        .login-error.show { display: block; }
+        .login-right {
+            flex: 1;
+            background: linear-gradient(160deg, #e0e7ff 0%, #c7d2fe 50%, #e2e8f0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-right::before {
+            content: '';
+            position: absolute;
+            width: 480px;
+            height: 480px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .login-right .decoration {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            background: rgba(255,255,255,0.85);
+            border-radius: 24px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 72px;
+        }
+        .login-copyright {
+            position: absolute;
+            bottom: 28px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+        .login-copyright .login-copyright-brand {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面：未登录时显示 -->
+    <div id="login-screen">
+        <div class="login-left">
+            <div class="login-logo">多任务检测<span>系统</span></div>
+            <p class="login-sub">实时监测 · 智能告警 · 一键配置</p>
+            <h1 class="login-title">欢迎登录</h1>
+            <form class="login-form" id="login-form" onsubmit="return doLogin(event)" autocomplete="off">
+                <div class="login-error" id="login-error">用户名或密码错误</div>
+                <div class="field-wrap">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <input type="text" id="login-username" placeholder="用户名" autocomplete="off" required>
+                </div>
+                <div class="field-wrap">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <input type="password" id="login-password" placeholder="密码" autocomplete="new-password" required>
+                </div>
+                <div class="login-forgot"><a href="javascript:void(0)">忘记密码?</a></div>
+                <button type="submit" class="login-btn">登录</button>
+            </form>
+            <p class="login-disclaimer">使用产品时，请尊重他人隐私等权利</p>
+            <div class="login-copyright">© <span class="login-copyright-brand">多任务检测系统</span> · 请勿外传</div>
+        </div>
+        <div class="login-right">
+            <div class="decoration">📹</div>
+        </div>
+    </div>
+
+    <div class="app-layout" id="app-layout" style="display:none;">
+        <nav class="sidebar">
+            <button type="button" class="nav-item active" data-panel="preview" title="主画面（实时监测）">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M22 12l-4-4v8l4-4z"/><path d="M2 12l4-4v8l-4-4z"/></svg></span>
+                <span>预览</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="alerts" title="报警事件">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                <span>报警事件</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="config" title="相关配置">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                <span>配置</span>
+            </button>
+            <button type="button" class="nav-item" data-panel="system" title="系统信息">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="14" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="13" y2="12"/><line x1="8" y1="16" x2="11" y2="16"/>
+                    </svg>
+                </span>
+                <span>系统</span>
+            </button>
+        </nav>
+        <div class="content-area">
+            <!-- 主画面：实时监测 -->
+            <div id="panel-preview" class="panel active">
+    <div class="container">
+        <div class="header">
+            <h1>多任务检测系统 · 时间段自动开关版</h1>
+            <div class="subtitle">支持时间段自动启动 · 自动识别跨天 · 手动操作随时可用</div>
+            <div class="system-status-wrap">
+                <span class="system-status-label">当前状态：</span>
+                <span id="system-status-pill" class="status-pill stopped"><span class="icon">❌</span><span id="system-status-text">已停止</span></span>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="video-section">
+                <video id="video-hls" muted autoplay playsinline style="display:none" alt="HLS 实时视频流（低延迟）"></video>
+                <img id="video-feed" src="/video_feed" alt="实时视频流（MJPEG 回退）">
+                <div class="video-overlay" aria-hidden="true">
+                    <div id="video-conn-badge" class="badge warn">🟡 正在连接 <span class="muted" id="video-conn-extra"></span></div>
+                    <div id="video-fps-badge" class="badge">FPS: <span id="video-fps-value">-</span></div>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <div class="system-controls">
+                    <button class="btn btn-start" onclick="startSystem()">启动系统</button>
+                    <button class="btn btn-stop" onclick="stopSystem()">停止</button>
+                    <button class="btn btn-info" onclick="updateStatus()">刷新</button>
+                    <button class="btn btn-info" onclick="showAlertsHistory()">历史告警</button>
+                </div>
+                
+                <div class="scene-group daily-group">
+                    <div class="scene-title">
+                        <span class="scene-icon">🏠</span>
+                        <span>日常场景</span>
+                    </div>
+                    
+                    <div class="detector-buttons">
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">🤸</span>
+                                    <span>跌倒检测</span>
+                                </div>
+                                <label class="toggle-switch" id="fall-switch">
+                                    <input type="checkbox" id="fall-toggle" onchange="toggleDetector('fall', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                实时监控人员跌倒，触发警报并保存视频
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="fall-timeslot-enabled" onchange="updateTimeslotStatus('fall')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="fall-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="fall-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('fall')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="fall-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">⛑️</span>
+                                    <span>安全帽检测</span>
+                                </div>
+                                <label class="toggle-switch" id="helmet-switch">
+                                    <input type="checkbox" id="helmet-toggle" onchange="toggleDetector('helmet', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                监控人员是否佩戴安全帽，持续3秒未戴触发警报
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="helmet-timeslot-enabled" onchange="updateTimeslotStatus('helmet')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="helmet-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="helmet-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('helmet')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="helmet-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">🥊</span>
+                                    <span>打架检测</span>
+                                </div>
+                                <label class="toggle-switch" id="fight-switch">
+                                    <input type="checkbox" id="fight-toggle" onchange="toggleDetector('fight', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                检测暴力冲突行为，自动保存警报视频
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="fight-timeslot-enabled" onchange="updateTimeslotStatus('fight')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="fight-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="fight-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('fight')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="fight-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">👥</span>
+                                    <span>聚集检测</span>
+                                </div>
+                                <label class="toggle-switch" id="crowd-switch">
+                                    <input type="checkbox" id="crowd-toggle" onchange="toggleDetector('crowd', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                使用DBSCAN检测人员聚集，智能识别新位置
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="crowd-timeslot-enabled" onchange="updateTimeslotStatus('crowd')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="crowd-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="crowd-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('crowd')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="crowd-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="scene-group work-group">
+                    <div class="scene-title">
+                        <span class="scene-icon">🏭</span>
+                        <span>工作场景</span>
+                    </div>
+                    
+                    <div class="detector-buttons">
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">🪟</span>
+                                    <span>窗户门检测</span>
+                                </div>
+                                <label class="toggle-switch" id="window_door-switch">
+                                    <input type="checkbox" id="window_door-toggle" onchange="toggleDetector('window_door', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                监控窗户门开关状态，观察3秒达到80%检测率触发警报
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="window_door-timeslot-enabled" onchange="updateTimeslotStatus('window_door')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="window_door-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="window_door-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('window_door')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="window_door-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detector-card">
+                            <h3>
+                                <div class="detector-name">
+                                    <span class="icon">😷</span>
+                                    <span>呼吸机检测</span>
+                                </div>
+                                <label class="toggle-switch" id="ventilator-switch">
+                                    <input type="checkbox" id="ventilator-toggle" onchange="toggleDetector('ventilator', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </h3>
+                            <div class="detector-description">
+                                监控人员是否正确佩戴呼吸面罩
+                            </div>
+                            <div class="timeslot-config">
+                                <div class="timeslot-header">
+                                    <span class="timeslot-label">⏰ 自动调度</span>
+                                    <label class="toggle-switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" id="ventilator-timeslot-enabled" onchange="updateTimeslotStatus('ventilator')">
+                                        <span class="slider" style="border-radius: 20px;"></span>
+                                    </label>
+                                </div>
+                                <div class="timeslot-inputs">
+                                    <input type="time" class="time-input" id="ventilator-start" value="08:00">
+                                    <span class="time-separator">至</span>
+                                    <input type="time" class="time-input" id="ventilator-end" value="18:00">
+                                    <button class="btn-save-timeslot" onclick="saveTimeslot('ventilator')">保存</button>
+                                </div>
+                                <div class="timeslot-status" id="ventilator-timeslot-status">
+                                    <span class="status-indicator inactive"></span>
+                                    <span>时间段未启用</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+            </div>
+            
+            <!-- 报警事件 -->
+            <div id="panel-alerts" class="panel">
+                <div class="alerts-toolbar">
+                    <div class="alerts-toolbar-group">
+                        <label>告警类别：</label>
+                        <select id="alerts-category">
+                            <option value="">全部</option>
+                            <option value="fall">跌倒检测</option>
+                            <option value="helmet">安全帽检测</option>
+                            <option value="fight">打架检测</option>
+                            <option value="crowd">聚集检测</option>
+                            <option value="window_door">窗户门检测</option>
+                            <option value="ventilator">呼吸机检测</option>
+                        </select>
+                        <label>视频通道：</label>
+                        <select id="alerts-channel">
+                            <option value="">全部通道</option>
+                            <option value="1">通道 1</option>
+                            <option value="2">通道 2</option>
+                            <option value="3">通道 3</option>
+                            <option value="4">通道 4</option>
+                            <option value="5">通道 5</option>
+                            <option value="6">通道 6</option>
+                            <option value="7">通道 7</option>
+                            <option value="8">通道 8</option>
+                            <option value="9">通道 9</option>
+                            <option value="10">通道 10</option>
+                            <option value="11">通道 11</option>
+                            <option value="12">通道 12</option>
+                            <option value="13">通道 13</option>
+                            <option value="14">通道 14</option>
+                            <option value="15">通道 15</option>
+                            <option value="16">通道 16</option>
+                        </select>
+                        <label>排序：</label>
+                        <select id="alerts-sort">
+                            <option value="desc">时间：最新在前</option>
+                            <option value="asc">时间：最早在前</option>
+                        </select>
+                    </div>
+                    <div class="alerts-toolbar-group">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="alerts-select-all" onchange="toggleSelectAllAlerts()">
+                            <span>全选</span>
+                        </label>
+                        <button type="button" class="btn btn-info" onclick="loadAlertsList()">刷新</button>
+                        <button type="button" class="btn btn-warn" onclick="batchDeleteAlerts()" title="批量删除选中告警文件">批量删除</button>
+                        <button type="button" class="btn btn-info" onclick="batchDownloadAlerts()" title="批量下载选中告警文件">批量下载</button>
+                        <button type="button" class="btn btn-warn" onclick="clearExpiredAlerts()" title="删除超过 7 天的告警文件">清除过期</button>
+                        <button type="button" class="btn btn-danger" onclick="clearAllAlerts()" title="删除全部告警视频和图片">清除全部</button>
+                    </div>
+                    <span class="alerts-path" id="alerts-path-hint">告警文件保存路径：加载中…</span>
+                </div>
+                <p style="padding: 10px 24px; font-size: 13px; color: var(--color-text-muted); display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+                    <span>下载时将保存到浏览器默认下载目录，可在浏览器设置中修改默认下载路径。视频和图片最多保存 7 天，过期将自动清理。</span>
+                    <span id="alerts-storage-info" class="alerts-batch-info"></span>
+                </p>
+                <div id="alerts-list" class="alerts-list"></div>
+            </div>
+            
+            <!-- 相关配置：视频流 + 模型报警参数 -->
+            <div id="panel-config" class="panel">
+                <div class="config-toolbar">
+                    <h2>相关配置</h2>
+                    <div>
+                        <button type="button" class="btn-save-config" onclick="saveStreamConfig()" style="margin-right:8px;">保存视频流配置</button>
+                        <button type="button" class="btn-save-config" onclick="saveAlarmParams()">保存报警参数</button>
+                    </div>
+                </div>
+                <div id="config-content" class="config-content">
+                    <div id="config-stream-wrap" class="config-section-wrap"></div>
+                    <div id="config-alarm-wrap" class="config-section-wrap"></div>
+                </div>
+            </div>
+
+            <!-- 系统信息 -->
+            <div id="panel-system" class="panel">
+                <div class="config-toolbar">
+                    <h2><span style="font-size:20px;">📊</span><span>系统信息</span></h2>
+                    <div>
+                        <button type="button" class="btn-save-config" id="system-refresh-btn" onclick="loadSystemInfo()">刷新</button>
+                    </div>
+                </div>
+                <div class="config-content" id="system-info-content">
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <span style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:18px;">📋</span>
+                                <span>基础信息</span>
+                            </span>
+                        </div>
+                        <div class="config-section-body" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+                            <div class="config-field">
+                                <label>系统运行时间</label>
+                                <div id="sys-uptime" style="font-size:15px;color:var(--color-text);font-weight:600;">-</div>
+                            </div>
+                            <div class="config-field">
+                                <label>系统时间（北京时间）</label>
+                                <div id="sys-time" style="font-size:15px;color:var(--color-text);font-weight:600;">-</div>
+                            </div>
+                            <div class="config-field">
+                                <label>应用版本号</label>
+                                <div id="sys-version" style="font-size:15px;color:var(--color-text);font-weight:600;">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <span style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:18px;">🧩</span>
+                                <span>硬件资源</span>
+                            </span>
+                        </div>
+                        <div class="config-section-body sys-res-grid">
+                            <div class="config-field">
+                                <label>CPU 使用率</label>
+                                <div class="resource-bar-wrap">
+                                    <div class="resource-bar-bg">
+                                        <div id="res-cpu-bar" class="resource-bar-fill"></div>
+                                    </div>
+                                    <span id="res-cpu-text" class="resource-bar-text">-</span>
+                                </div>
+                            </div>
+                            <div class="config-field">
+                                <label>内存使用率</label>
+                                <div class="resource-bar-wrap">
+                                    <div class="resource-bar-bg">
+                                        <div id="res-mem-bar" class="resource-bar-fill"></div>
+                                    </div>
+                                    <span id="res-mem-text" class="resource-bar-text">-</span>
+                                </div>
+                            </div>
+                            <div class="config-field">
+                                <label>存储使用率（alarm_videos 所在磁盘）</label>
+                                <div class="resource-bar-wrap">
+                                    <div class="resource-bar-bg">
+                                        <div id="res-disk-bar" class="resource-bar-fill"></div>
+                                    </div>
+                                    <span id="res-disk-text" class="resource-bar-text">-</span>
+                                </div>
+                                <div id="res-disk-path" style="margin-top:4px;font-size:12px;color:var(--color-text-muted);"></div>
+                            </div>
+                            <div class="config-field">
+                                <label>BM1684X TPU 使用率</label>
+                                <div class="resource-bar-wrap">
+                                    <div class="resource-bar-bg">
+                                        <div id="res-tpu-bar" class="resource-bar-fill"></div>
+                                    </div>
+                                    <span id="res-tpu-text" class="resource-bar-text">-</span>
+                                </div>
+                                <div id="res-tpu-note" style="margin-top:4px;font-size:12px;color:var(--color-text-muted);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <span style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:18px;">📡</span>
+                                <span>应用状态</span>
+                            </span>
+                        </div>
+                        <div class="config-section-body" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
+                            <div class="config-field">
+                                <label>主程序运行状态</label>
+                                <div id="sys-main-status" style="font-size:15px;font-weight:600;color:var(--color-text);">-</div>
+                            </div>
+                            <div class="config-field" style="grid-column: 1 / -1;">
+                                <label>检测器运行状态</label>
+                                <ul id="sys-detectors" style="list-style:none;margin:0;padding:0;font-size:13px;color:var(--color-text);display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></ul>
+                            </div>
+                            <div class="config-field" style="grid-column: 1 / -1;">
+                                <label>视频流连接状态</label>
+                                <ul id="sys-streams" style="list-style:none;margin:0;padding:0;font-size:13px;color:var(--color-text);display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    <div id="app-modal-overlay" class="app-modal-overlay">
+        <div class="app-modal">
+            <div id="app-modal-icon" class="app-modal-icon info"></div>
+            <div id="app-modal-title" class="app-modal-title"></div>
+            <div id="app-modal-body" class="app-modal-body"></div>
+            <div id="app-modal-buttons" class="app-modal-buttons"></div>
+        </div>
+    </div>
+    
+    <script>
+        let systemRunning = false;
+        let alertEventSource = null;
+        let statusEventSource = null;
+        let systemUiState = 'stopped'; // running / stopped / starting / stopping
+        let lastUserActionAt = 0;
+        let videoConnState = 'connecting'; // ok / connecting / failed / reconnecting
+        let lastVideoOkAt = 0;
+        let fpsValue = null;
+        let _fpsLastTs = 0;
+        let _fpsFrameCount = 0;
+        let streamCount = 1;
+
+        // 登录：用户名 admin，密码 admin
+        var LOGIN_USER = 'admin';
+        var LOGIN_PASS = 'admin';
+        var SESSION_KEY = 'detection_system_logged_in';
+
+        function doLogin(e) {
+            e.preventDefault();
+            var username = (document.getElementById('login-username') || {}).value || '';
+            var password = (document.getElementById('login-password') || {}).value || '';
+            var errEl = document.getElementById('login-error');
+            if (username === LOGIN_USER && password === LOGIN_PASS) {
+                if (errEl) errEl.classList.remove('show');
+                try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (x) {}
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-layout').style.display = 'flex';
+                return false;
+            }
+            if (errEl) {
+                errEl.textContent = '用户名或密码错误';
+                errEl.classList.add('show');
+            }
+            return false;
+        }
+
+        (function checkLogin() {
+            try {
+                if (sessionStorage.getItem(SESSION_KEY) === '1') {
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('app-layout').style.display = 'flex';
+                } else {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                    document.getElementById('app-layout').style.display = 'none';
+                    var u = document.getElementById('login-username');
+                    var p = document.getElementById('login-password');
+                    if (u) u.value = '';
+                    if (p) p.value = '';
+                }
+            } catch (x) {
+                document.getElementById('app-layout').style.display = 'flex';
+            }
+        })();
+        
+        function showAppAlert(message, type) {
+            type = type || 'info';
+            var overlay = document.getElementById('app-modal-overlay');
+            var iconEl = document.getElementById('app-modal-icon');
+            var titleEl = document.getElementById('app-modal-title');
+            var bodyEl = document.getElementById('app-modal-body');
+            var buttonsEl = document.getElementById('app-modal-buttons');
+            if (!overlay) return;
+            iconEl.className = 'app-modal-icon ' + type;
+            iconEl.textContent = type === 'success' ? '✓' : (type === 'error' ? '✕' : 'ℹ');
+            titleEl.textContent = type === 'success' ? '提示' : (type === 'error' ? '提示' : '提示');
+            bodyEl.textContent = message || '';
+            buttonsEl.innerHTML = '<button type="button" class="btn-modal btn-modal-primary" id="app-modal-ok">确定</button>';
+            overlay.classList.add('show');
+            function closeModal() {
+                overlay.classList.remove('show');
+            }
+            document.getElementById('app-modal-ok').onclick = closeModal;
+            overlay.onclick = function(e) { if (e.target === overlay) closeModal(); };
+        }
+        function showAppConfirm(message, onConfirm, onCancel) {
+            var overlay = document.getElementById('app-modal-overlay');
+            var iconEl = document.getElementById('app-modal-icon');
+            var titleEl = document.getElementById('app-modal-title');
+            var bodyEl = document.getElementById('app-modal-body');
+            var buttonsEl = document.getElementById('app-modal-buttons');
+            if (!overlay) return;
+            iconEl.className = 'app-modal-icon info';
+            iconEl.textContent = '?';
+            titleEl.textContent = '确认';
+            bodyEl.textContent = message || '';
+            buttonsEl.innerHTML = '<button type="button" class="btn-modal btn-modal-secondary" id="app-modal-cancel">取消</button><button type="button" class="btn-modal btn-modal-primary" id="app-modal-confirm">确定</button>';
+            overlay.classList.add('show');
+            function closeModal() {
+                overlay.classList.remove('show');
+            }
+            document.getElementById('app-modal-cancel').onclick = function() { closeModal(); if (onCancel) onCancel(); };
+            document.getElementById('app-modal-confirm').onclick = function() { closeModal(); if (onConfirm) onConfirm(); };
+            overlay.onclick = function(e) { if (e.target === overlay) { closeModal(); if (onCancel) onCancel(); } };
+        }
+        
+        var alarmTypeLabels = {
+            'fall': '跌倒检测', 'ventilator': '呼吸机检测', 'fight': '打架检测',
+            'crowd': '聚集检测', 'helmet': '安全帽检测', 'window_door': '窗户门检测'
+        };
+        var alarmTypeIcons = {
+            'fall': '🤸',
+            'helmet': '🧢',
+            'fight': '🥊',
+            'crowd': '👥',
+            'window_door': '🪟',
+            'ventilator': '😷',
+            'default': '📹'
+        };
+        /** 模型报警参数：英文 key -> 中文描述，用于配置页显示「中文（english_name）」 */
+        var paramLabelMap = {
+            conf_threshold: '置信度',
+            observation_duration: '观察时长(秒)',
+            fall_threshold: '跌倒阈值',
+            cooldown_duration: '冷却时长(秒)',
+            large_bbox_conf: '大框置信度',
+            small_bbox_conf: '小框置信度',
+            equipment_conf: '设备置信度',
+            person_conf: '人员置信度',
+            pass_threshold: '通过阈值(佩戴率)',
+            fail_threshold: '失败阈值(未佩戴率)',
+            use_helmet_detection: '使用安全帽检测',
+            mask_iou_threshold: '面罩IoU阈值',
+            tank_distance_coefficient: '氧气瓶距离系数',
+            tank_x_offset_coefficient: '氧气瓶X偏移系数',
+            fight_threshold: '打架阈值',
+            alarm_frames: '告警帧数',
+            eps_pixels: '聚类距离(像素)',
+            min_samples: '最小样本数',
+            stability_duration: '稳定时长(秒)',
+            spatial_distance: '空间距离',
+            iou_threshold: 'IoU阈值',
+            max_age: '最大跟踪年龄',
+            alert_duration: '告警持续时间(秒)',
+            observation_frames: '观察帧数',
+            detection_threshold: '检测阈值'
+        };
+
+        /** 模型报警参数：帮助说明提示文本（悬停 ℹ️ 时显示） */
+        var paramHelpMap = {
+            conf_threshold: '低于此置信度的检测结果将被忽略，一般建议 0.3~0.5，数值越低越灵敏，但误报可能增多。',
+            observation_duration: '持续观察的时间窗口（秒），只有在该时间段内持续满足条件才会触发告警，时间越长越稳定但响应更慢。',
+            fall_threshold: '在观察时间窗口内被判定为“跌倒”的帧比例阈值，超过该比例才认定为跌倒事件。',
+            cooldown_duration: '冷却时间（秒），同一目标在该时间内只会触发一次告警，用于防止重复告警。',
+            large_bbox_conf: '大框目标的置信度阈值，主要针对近景或目标较大的情况。',
+            small_bbox_conf: '小框目标的置信度阈值，主要针对远处或目标较小的情况。',
+            equipment_conf: '设备（如呼吸机、氧气瓶）检测的置信度阈值。',
+            person_conf: '人员检测的置信度阈值，越高越严格，越低越容易识别到人。',
+            pass_threshold: '在观察时间内“通过”的比例阈值，例如佩戴率达到该值视为合格。',
+            fail_threshold: '在观察时间内“未通过”的比例阈值，例如未佩戴率达到该值触发告警。',
+            use_helmet_detection: '是否启用安全帽检测代替人员检测，用于在复杂环境下提高鲁棒性。',
+            mask_iou_threshold: '面罩与头部之间的 IoU 阈值，反映遮挡/佩戴贴合程度，建议 0.1~0.2。',
+            tank_distance_coefficient: '氧气瓶与头部之间的距离系数，用于计算“足够接近”的判断条件。',
+            tank_x_offset_coefficient: '氧气瓶在水平方向相对头部的偏移系数，控制可接受的左右偏差范围。',
+            fight_threshold: '在观察窗口内被判定为“打架”的帧比例阈值，越低越灵敏，越高越严格。',
+            alarm_frames: '连续出现多少帧满足条件才触发一次打架告警。',
+            eps_pixels: '聚类算法中两个目标之间的最大像素距离，越小越容易划分成多个小团体。',
+            min_samples: '形成一簇所需的最小样本数，越小越容易产生“聚集”告警。',
+            stability_duration: '聚集模式需要保持稳定的时间（秒）才视为有效告警。',
+            spatial_distance: '用于判断人群之间是否足够接近的空间距离阈值。',
+            iou_threshold: '检测框之间的 IoU 阈值，常用于去重及目标跟踪，越高越严格。',
+            max_age: '跟踪目标在多少帧未被重新检测到后视为丢失，数值越大越不容易丢失轨迹。',
+            alert_duration: '满足条件后需要持续多少秒才会真正触发窗户/门告警。',
+            observation_frames: '在多少帧范围内统计窗户/门的开启状态，用于平滑抖动。',
+            detection_threshold: '在观察窗口内被判定为“打开”或“异常”的帧比例阈值，超过即触发告警。'
+        };
+
+        /** 报警参数默认值快照（从后端加载时记录，用于“默认模式”一键恢复） */
+        var alarmDefaultParams = null;
+
+        /** 报警参数模板预设：高灵敏度 / 低误报，可一键应用 */
+        var alarmPresets = {
+            default_mode: {
+                label: '默认模式',
+                description: '恢复为当前系统内置的默认参数（即页面加载时从配置文件读取到的初始值）。',
+                overrides: null  // 特殊处理：使用 alarmDefaultParams 进行完整还原
+            },
+            high_sensitivity: {
+                label: '高灵敏度模式',
+                description: '适合需要尽早发现风险的场景，会相对更容易触发告警，可能略微增加误报。',
+                overrides: {
+                    fall_detection: { conf_threshold: 0.25, fall_threshold: 0.4, observation_duration: 3.0 },
+                    fight_detection: { conf_threshold: 0.25, fight_threshold: 0.2, observation_duration: 3.0 },
+                    crowd_detection: { min_samples: 3, stability_duration: 0.5 },
+                    helmet_detection: { conf_threshold: 0.25 },
+                    window_door_detection: { detection_threshold: 0.7 }
+                }
+            },
+            low_false_positive: {
+                label: '低误报模式',
+                description: '适合对误报容忍度较低的场景，会尽量减少误报，但漏报风险略有增加。',
+                overrides: {
+                    fall_detection: { conf_threshold: 0.4, fall_threshold: 0.7, observation_duration: 5.0 },
+                    fight_detection: { conf_threshold: 0.4, fight_threshold: 0.5, observation_duration: 6.0 },
+                    crowd_detection: { min_samples: 4, stability_duration: 2.0 },
+                    helmet_detection: { conf_threshold: 0.4 },
+                    window_door_detection: { detection_threshold: 0.9 }
+                }
+            }
+        };
+        
+        /** 告警时间统一按北京时间显示，格式：yyyy/MM/dd HH:mm:ss */
+        function formatAlarmTime(mtime) {
+            if (mtime == null || mtime === undefined) return '';
+            var d = new Date(mtime * 1000);
+            return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        }
+
+        /** 构造报警事件展示名称：报警类别_编号（如 helmet_071309），不展示日期和时间文本 */
+        function buildAlertDisplayName(name) {
+            if (!name) return '';
+            var base = name.split('.')[0];
+            // 兼容带通道与不带通道的命名：helmet_ch2_YYYYMMDD_HHMMSS[_frame]
+            var m = base.match(/^(fall|ventilator|fight|crowd|helmet|window_door)(?:_ch\d+)?_(\d{8})_(\d{6})(?:_frame)?$/i);
+            if (m) {
+                var prefix = m[1].toLowerCase();
+                var hms = m[2 + 0] ? m[2 + 0] : m[2]; // 保底处理
+                var timePart = m[3] || m[2].slice(8);
+                // 只保留 HHMMSS 作为编号
+                return prefix + "_" + timePart;
+            }
+            return base;
+        }
+        
+        function switchPanel(panelId) {
+            document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+            var panel = document.getElementById('panel-' + panelId);
+            var nav = document.querySelector('.nav-item[data-panel="' + panelId + '"]');
+            if (panel) panel.classList.add('active');
+            if (nav) nav.classList.add('active');
+            if (panelId === 'alerts') loadAlertsList();
+            if (panelId === 'config') { loadStreamConfig(); loadAlarmParams(); }
+            if (panelId === 'system') { loadSystemInfo(); }
+        }
+        
+        document.querySelectorAll('.nav-item').forEach(function(n) {
+            n.addEventListener('click', function() { switchPanel(this.getAttribute('data-panel')); });
+        });
+        
+        function loadAlertsList() {
+            var category = document.getElementById('alerts-category').value;
+            var channel = document.getElementById('alerts-channel').value;
+            var sort = document.getElementById('alerts-sort').value || 'desc';
+            fetch('/api/alerts/history').then(function(r) { return r.json(); }).then(function(data) {
+                var hint = document.getElementById('alerts-path-hint');
+                if (data.output_dir) hint.textContent = '告警文件保存路径：' + data.output_dir;
+                // 存储空间提示
+                var infoEl = document.getElementById('alerts-storage-info');
+                if (infoEl) {
+                    var totalSize = data.total_size || 0;
+                    var diskTotal = data.disk_total;
+                    var diskUsed = data.disk_used;
+                    var text = '当前告警文件总大小：' + formatBytes(totalSize);
+                    if (diskTotal != null && diskUsed != null) {
+                        text += ' · 磁盘使用：' + formatBytes(diskUsed) + ' / ' + formatBytes(diskTotal);
+                    }
+                    infoEl.textContent = text;
+                }
+                var items = (data.items || []).slice();
+                // 筛选
+                items = items.filter(function(x) {
+                    if (category && x.category !== category) return false;
+                    if (channel) {
+                        return String(x.channel || '') === String(channel);
+                    }
+                    return true;
+                });
+                // 排序
+                items.sort(function(a, b) {
+                    if (sort === 'asc') {
+                        return (a.mtime || 0) - (b.mtime || 0);
+                    }
+                    return (b.mtime || 0) - (a.mtime || 0);
+                });
+                var list = document.getElementById('alerts-list');
+                list.innerHTML = '';
+                items.forEach(function(x) {
+                    var card = document.createElement('div');
+                    card.className = 'alert-card';
+                    var label = alarmTypeLabels[x.category] || x.category;
+                    var icon = alarmTypeIcons[x.category] || alarmTypeIcons['default'];
+                    var timeStr = formatAlarmTime(x.mtime);
+                    var url = '/api/alerts/file?name=' + encodeURIComponent(x.name);
+                    var channelText = x.channel ? ('通道 ' + x.channel) : '通道 未知';
+                    var sizeText = (typeof x.size === 'number') ? formatBytes(x.size) : '-';
+                    var displayName = buildAlertDisplayName(x.name);
+                    var thumbHtml = '';
+                    if (x.type === 'image') {
+                        thumbHtml = '<img src="' + url + '" alt="告警图片">';
+                    } else {
+                        // 视频：如果有同名前缀的缩略图，后端会直接返回为单独的条目；这里仍然使用图标占位
+                        thumbHtml = '<div style="font-size:38px;">' + icon + '</div>';
+                    }
+                    card.innerHTML =
+                        '<div class="thumb">' +
+                            '<div style="position:absolute;top:8px;left:8px;font-size:18px;">' + icon + '</div>' +
+                            thumbHtml +
+                        '</div>' +
+                        '<div class="info">' +
+                            '<div class="name" title="' + x.name + '">' +
+                                '<input type="checkbox" class="alert-select" data-name="' + x.name.replace(/"/g, '&quot;') + '" style="margin-right:8px;vertical-align:middle;">' +
+                                displayName +
+                            '</div>' +
+                            '<div class="meta">' + label + ' · ' + channelText + ' · ' + sizeText + '</div>' +
+                            '<a class="btn-download" href="' + url + '" download="' + x.name.replace(/[^a-zA-Z0-9._-]/g, '_') + '">下载到本地</a>' +
+                        '</div>';
+                    list.appendChild(card);
+                });
+                if (items.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无告警文件</p><p style="font-size:13px;margin-top:8px;">系统产生的告警图片与视频将在此展示，支持按类别、通道和时间排序筛选</p></div>';
+                }
+                // 刷新后取消全选
+                var selAll = document.getElementById('alerts-select-all');
+                if (selAll) selAll.checked = false;
+            }).catch(function(e) {
+                document.getElementById('alerts-list').innerHTML = '<p style="color:#dc2626;">加载失败：' + e + '</p>';
+            });
+        }
+        document.getElementById('alerts-category').addEventListener('change', loadAlertsList);
+        var chSel = document.getElementById('alerts-channel');
+        if (chSel) chSel.addEventListener('change', loadAlertsList);
+        var sortSel = document.getElementById('alerts-sort');
+        if (sortSel) sortSel.addEventListener('change', loadAlertsList);
+
+        function getSelectedAlertNames() {
+            var boxes = document.querySelectorAll('.alert-select');
+            var names = [];
+            boxes.forEach(function(b) {
+                if (b.checked) names.push(b.getAttribute('data-name'));
+            });
+            return names;
+        }
+
+        function toggleSelectAllAlerts() {
+            var selAll = document.getElementById('alerts-select-all');
+            var checked = !!(selAll && selAll.checked);
+            document.querySelectorAll('.alert-select').forEach(function(b) {
+                b.checked = checked;
+            });
+        }
+
+        function batchDownloadAlerts() {
+            var names = getSelectedAlertNames();
+            if (!names.length) {
+                showAppAlert('请先选择要下载的告警文件', 'info');
+                return;
+            }
+            names.forEach(function(name, idx) {
+                setTimeout(function() {
+                    var a = document.createElement('a');
+                    a.href = '/api/alerts/file?name=' + encodeURIComponent(name);
+                    a.download = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }, idx * 200);
+            });
+        }
+
+        function batchDeleteAlerts() {
+            var names = getSelectedAlertNames();
+            if (!names.length) {
+                showAppAlert('请先选择要删除的告警文件', 'info');
+                return;
+            }
+            showAppConfirm('确定要删除选中的 ' + names.length + ' 个告警文件吗？此操作不可恢复。', function() {
+                fetch('/api/alerts/delete_batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ names: names })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.status === 'success') {
+                        showAppAlert(data.message || '批量删除成功', 'success');
+                        loadAlertsList();
+                    } else {
+                        showAppAlert(data.message || '批量删除失败', 'error');
+                    }
+                }).catch(function(e) {
+                    showAppAlert('批量删除失败：' + e, 'error');
+                });
+            });
+        }
+        
+        function clearExpiredAlerts() {
+            fetch('/api/alerts/cleanup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_days: 7 }) })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.status === 'success') {
+                        showAppAlert(data.deleted > 0 ? '已删除 ' + data.deleted + ' 个过期文件' : '没有过期文件', 'success');
+                        loadAlertsList();
+                    } else {
+                        showAppAlert(data.message || '清除失败', 'error');
+                    }
+                })
+                .catch(function(e) { showAppAlert('请求失败', 'error'); });
+        }
+        function clearAllAlerts() {
+            showAppConfirm('确定要删除全部告警视频和图片吗？此操作不可恢复。', function() {
+                fetch('/api/alerts/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.status === 'success') {
+                            showAppAlert(data.deleted > 0 ? '已删除 ' + data.deleted + ' 个文件' : '列表已为空', 'success');
+                            loadAlertsList();
+                        } else {
+                            showAppAlert(data.message || '清除失败', 'error');
+                        }
+                    })
+                    .catch(function(e) { showAppAlert('请求失败', 'error'); });
+            });
+        }
+        
+        function buildStreamPathsHtml(cfg) {
+            var mode = parseInt(cfg.input_mode, 10);
+            var n = parseInt(cfg.stream_count, 10);
+            if (![1,2,4,9,16].includes(n)) n = 1;
+            var html = '<div class="config-stream-paths">';
+            if (mode === 0) {
+                if (n === 1) {
+                    html += '<div class="config-field"><label>RTSP 地址（rtsp_url）</label><input type="text" data-name="rtsp_url" value="' + (cfg.rtsp_url || '').replace(/"/g, '&quot;') + '" placeholder="rtsp://..."></div>';
+                } else {
+                    var urls = cfg.rtsp_urls || [];
+                    for (var i = 0; i < n; i++) {
+                        var v = (urls[i] != null ? urls[i] : '').replace(/"/g, '&quot;');
+                        html += '<div class="config-field"><label>第' + (i + 1) + '路 RTSP（rtsp_urls[' + i + ']）</label><input type="text" data-name="rtsp_urls" data-index="' + i + '" value="' + v + '" placeholder="rtsp://..."></div>';
+                    }
+                }
+            } else {
+                if (n === 1) {
+                    html += '<div class="config-field"><label>视频文件路径（input_video_path）</label><input type="text" data-name="input_video_path" value="' + (cfg.input_video_path || '').replace(/"/g, '&quot;') + '" placeholder="/path/to/video.mp4"></div>';
+                } else {
+                    var paths = cfg.input_video_paths || [];
+                    for (var j = 0; j < n; j++) {
+                        var v2 = (paths[j] != null ? paths[j] : '').replace(/"/g, '&quot;');
+                        html += '<div class="config-field"><label>第' + (j + 1) + '路 视频路径（input_video_paths[' + j + ']）</label><input type="text" data-name="input_video_paths" data-index="' + j + '" value="' + v2 + '" placeholder="/path/to/video.mp4"></div>';
+                    }
+                }
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function loadStreamConfig() {
+            fetch('/api/config/stream').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status !== 'success') {
+                    document.getElementById('config-stream-wrap').innerHTML = '<p>加载视频流配置失败</p>';
+                    return;
+                }
+                var cfg = { input_mode: data.input_mode, stream_count: data.stream_count, rtsp_url: data.rtsp_url, rtsp_urls: data.rtsp_urls || [], input_video_path: data.input_video_path, input_video_paths: data.input_video_paths || [], video_loop: data.video_loop };
+                var html = '<div class="config-section"><div class="config-section-title">视频流配置</div><div class="config-section-body">';
+                html += '<div class="config-field"><label>输入模式（input_mode）</label><select id="stream-input-mode" data-name="input_mode">';
+                html += '<option value="0"' + (cfg.input_mode === 0 ? ' selected' : '') + '>RTSP 流</option>';
+                html += '<option value="1"' + (cfg.input_mode === 1 ? ' selected' : '') + '>视频文件</option></select></div>';
+                html += '<div class="config-field"><label>视频路数（stream_count）</label><select id="stream-count" data-name="stream_count">';
+                [1,2,4,9,16].forEach(function(v) { html += '<option value="' + v + '"' + (cfg.stream_count === v ? ' selected' : '') + '>' + v + ' 路</option>'; });
+                html += '</select></div>';
+                html += '<div class="config-field"><label>视频循环（video_loop）</label><input type="checkbox" id="stream-video-loop" data-name="video_loop"' + (cfg.video_loop ? ' checked' : '') + '></div>';
+                html += '<div id="stream-paths-container">' + buildStreamPathsHtml(cfg) + '</div></div></div>';
+                document.getElementById('config-stream-wrap').innerHTML = html;
+                var selMode = document.getElementById('stream-input-mode');
+                var selCount = document.getElementById('stream-count');
+                function refreshPaths() {
+                    var c = { input_mode: parseInt(selMode.value, 10), stream_count: parseInt(selCount.value, 10), rtsp_url: cfg.rtsp_url, rtsp_urls: cfg.rtsp_urls, input_video_path: cfg.input_video_path, input_video_paths: cfg.input_video_paths };
+                    document.getElementById('stream-paths-container').innerHTML = buildStreamPathsHtml(c);
+                }
+                if (selMode) selMode.addEventListener('change', refreshPaths);
+                if (selCount) selCount.addEventListener('change', refreshPaths);
+            }).catch(function(e) {
+                document.getElementById('config-stream-wrap').innerHTML = '<p>加载失败：' + e + '</p>';
+            });
+        }
+
+        function saveStreamConfig() {
+            var wrap = document.getElementById('config-stream-wrap');
+            if (!wrap) return;
+            var elMode = wrap.querySelector('#stream-input-mode') || wrap.querySelector('[data-name="input_mode"]');
+            var elCount = wrap.querySelector('#stream-count') || wrap.querySelector('[data-name="stream_count"]');
+            var elLoop = wrap.querySelector('#stream-video-loop') || wrap.querySelector('[data-name="video_loop"]');
+            var inputMode = elMode ? parseInt(elMode.value, 10) : 0;
+            var streamCount = elCount ? parseInt(elCount.value, 10) : 1;
+            if (![1,2,4,9,16].includes(streamCount)) streamCount = 1;
+            var videoLoop = elLoop ? elLoop.checked !== false : true;
+            var payload = { input_mode: inputMode, stream_count: streamCount, video_loop: videoLoop };
+            if (inputMode === 0) {
+                if (streamCount === 1) {
+                    var one = wrap.querySelector('input[data-name="rtsp_url"]');
+                    payload.rtsp_url = one ? one.value.trim() : '';
+                } else {
+                    payload.rtsp_urls = [];
+                    for (var i = 0; i < streamCount; i++) {
+                        var inp = wrap.querySelector('input[data-name="rtsp_urls"][data-index="' + i + '"]');
+                        payload.rtsp_urls.push(inp ? inp.value.trim() : '');
+                    }
+                }
+            } else {
+                if (streamCount === 1) {
+                    var onePath = wrap.querySelector('input[data-name="input_video_path"]');
+                    payload.input_video_path = onePath ? onePath.value.trim() : '';
+                } else {
+                    payload.input_video_paths = [];
+                    for (var k = 0; k < streamCount; k++) {
+                        var inpPath = wrap.querySelector('input[data-name="input_video_paths"][data-index="' + k + '"]');
+                        payload.input_video_paths.push(inpPath ? inpPath.value.trim() : '');
+                    }
+                }
+            }
+            fetch('/api/config/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') showAppAlert(data.message || '视频流配置已保存', 'success'); else showAppAlert(data.message || '保存失败', 'error');
+            }).catch(function(e) { showAppAlert('保存失败：' + e, 'error'); });
+        }
+
+        function loadAlarmParams() {
+            fetch('/api/config/alarm_params').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status !== 'success' || !data.params) {
+                    document.getElementById('config-alarm-wrap').innerHTML = '<p>加载配置失败</p>';
+                    return;
+                }
+                // 记录加载时的默认参数快照，用于“默认模式”一键恢复
+                try {
+                    alarmDefaultParams = JSON.parse(JSON.stringify(data.params));
+                } catch (e) {
+                    alarmDefaultParams = data.params;
+                }
+                var titles = { fall_detection: '跌倒检测', ventilator_detection: '呼吸机检测', fight_detection: '打架检测', crowd_detection: '聚集检测', helmet_detection: '安全帽检测', window_door_detection: '窗户门检测' };
+                var html = '';
+                for (var key in data.params) {
+                    var p = data.params[key];
+                    if (typeof p !== 'object' || p === null) continue;
+                    html += '<div class="config-section"><div class="config-section-title">' + (titles[key] || key) + '</div><div class="config-section-body">';
+                    for (var k in p) {
+                        if (k.startsWith('_')) continue;
+                        var v = p[k];
+                        if (typeof v === 'object') continue;
+                        var labelText = (paramLabelMap[k] ? paramLabelMap[k] + '（' + k + '）' : k);
+                        var helpText = paramHelpMap[k] || '';
+                        var helpHtml = helpText ? '<span class="config-help" title="' + helpText.replace(/"/g, '&quot;') + '">ℹ️</span>' : '';
+                        html += '<div class="config-field"><label>' + labelText + helpHtml + '</label><input type="' + (typeof v === 'number' ? 'number' : (typeof v === 'boolean' ? 'text' : 'text')) + '" step="any" data-key="' + key + '" data-field="' + k + '" value="' + v + '"></div>';
+                    }
+                    html += '</div></div>';
+                }
+                if (!html) {
+                    document.getElementById('config-alarm-wrap').innerHTML = '<p>无配置项</p>';
+                    return;
+                }
+                // 在报警参数区域顶部插入“预设模板”按钮区
+                var presetBar = ''
+                    + '<div style="margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">'
+                    + '  <div style="font-size:13px; color:var(--color-text-muted);">可以一键应用推荐参数模板，然后再进行微调：</div>'
+                    + '  <div style="display:flex; gap:8px; flex-wrap:wrap;">'
+                    + '    <button type="button" class="btn-save-config" style="background:#6b7280;" onclick="applyAlarmPreset(\'default_mode\')">默认模式</button>'
+                    + '    <button type="button" class="btn-save-config" style="background:#4f46e5;" onclick="applyAlarmPreset(\'high_sensitivity\')">高灵敏度模式</button>'
+                    + '    <button type="button" class="btn-save-config" style="background:#059669;" onclick="applyAlarmPreset(\'low_false_positive\')">低误报模式</button>'
+                    + '  </div>'
+                    + '</div>';
+                document.getElementById('config-alarm-wrap').innerHTML = presetBar + html;
+            }).catch(function(e) {
+                document.getElementById('config-alarm-wrap').innerHTML = '<p>加载失败：' + e + '</p>';
+            });
+        }
+        
+        function saveAlarmParams() {
+            var params = {};
+            document.querySelectorAll('#config-alarm-wrap input[data-key]').forEach(function(inp) {
+                var key = inp.getAttribute('data-key');
+                var field = inp.getAttribute('data-field');
+                if (!params[key]) params[key] = {};
+                var v = inp.value;
+                params[key][field] = inp.type === 'number' ? parseFloat(v) : v;
+            });
+            fetch('/api/config/alarm_params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') showAppAlert(data.message || '配置已保存', 'success'); else showAppAlert(data.message || '保存失败', 'error');
+            }).catch(function(e) { showAppAlert('保存失败：' + e, 'error'); });
+        }
+
+        function applyAlarmPreset(mode) {
+            var preset = alarmPresets[mode];
+            if (!preset || !preset.overrides) {
+                // 特殊处理：默认模式，使用 alarmDefaultParams 完整还原
+                if (mode === 'default_mode' && alarmDefaultParams) {
+                    var applied = 0;
+                    document.querySelectorAll('#config-alarm-wrap input[data-key][data-field]').forEach(function (inp) {
+                        var detKey = inp.getAttribute('data-key');
+                        var field = inp.getAttribute('data-field');
+                        if (alarmDefaultParams[detKey] && alarmDefaultParams[detKey].hasOwnProperty(field)) {
+                            inp.value = alarmDefaultParams[detKey][field];
+                            applied++;
+                        }
+                    });
+                    var msgDefault = '默认模式已恢复，共还原 ' + applied + ' 个参数为初始值，请确认后点击“保存报警参数”生效。';
+                    showAppAlert(msgDefault, 'success');
+                    return;
+                }
+                showAppAlert('未找到对应的预设模板', 'error');
+                return;
+            }
+            var overrides = preset.overrides;
+            var appliedCount = 0;
+            for (var detKey in overrides) {
+                var fields = overrides[detKey];
+                for (var field in fields) {
+                    var value = fields[field];
+                    var selector = '#config-alarm-wrap input[data-key="' + detKey + '"][data-field="' + field + '"]';
+                    var input = document.querySelector(selector);
+                    if (input) {
+                        input.value = value;
+                        appliedCount++;
+                    }
+                }
+            }
+            var msg = (preset.label || '预设模板') + ' 已应用到 ' + appliedCount + ' 个参数，请确认后点击“保存报警参数”生效。';
+            if (preset.description) {
+                msg += '\n\n说明：' + preset.description;
+            }
+            showAppAlert(msg, 'success');
+        }
+
+        function formatBytes(bytes) {
+            if (bytes == null || !isFinite(bytes)) return '-';
+            var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            var idx = 0;
+            var v = bytes;
+            while (v >= 1024 && idx < units.length - 1) {
+                v /= 1024;
+                idx++;
+            }
+            return v.toFixed(1) + ' ' + units[idx];
+        }
+
+        function formatUptime(seconds) {
+            if (seconds == null || !isFinite(seconds)) return '-';
+            seconds = Math.max(0, Math.floor(seconds));
+            var days = Math.floor(seconds / 86400);
+            seconds %= 86400;
+            var hours = Math.floor(seconds / 3600);
+            seconds %= 3600;
+            var minutes = Math.floor(seconds / 60);
+            var parts = [];
+            if (days) parts.push(days + ' 天');
+            if (hours) parts.push(hours + ' 小时');
+            if (minutes) parts.push(minutes + ' 分钟');
+            if (!parts.length) parts.push('不足 1 分钟');
+            return parts.join(' ');
+        }
+
+        function setResourceBar(idBar, idText, percent, extraText) {
+            var bar = document.getElementById(idBar);
+            var textEl = document.getElementById(idText);
+            if (!bar || !textEl) return;
+            if (percent == null || !isFinite(percent)) {
+                bar.style.width = '0%';
+                textEl.textContent = '-';
+                return;
+            }
+            var p = Math.max(0, Math.min(100, percent));
+            bar.style.width = p.toFixed(0) + '%';
+            var label = p.toFixed(1) + '%';
+            if (extraText) label += ' · ' + extraText;
+            textEl.textContent = label;
+            if (p < 70) {
+                bar.style.background = 'linear-gradient(90deg, #22c55e, #16a34a)';
+            } else if (p < 90) {
+                bar.style.background = 'linear-gradient(90deg, #facc15, #eab308)';
+            } else {
+                bar.style.background = 'linear-gradient(90deg, #fb7185, #ef4444)';
+            }
+        }
+
+        function loadSystemInfo() {
+            var refreshBtn = document.getElementById('system-refresh-btn');
+            if (refreshBtn) refreshBtn.classList.add('btn-refresh-loading');
+            fetch('/api/system_info')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || data.status !== 'success') {
+                        showAppAlert((data && data.message) || '获取系统信息失败', 'error');
+                        return;
+                    }
+                    var basic = data.basic || {};
+                    var res = data.resources || {};
+                    var status = data.app_status || {};
+
+                    // 基础信息
+                    var uptimeEl = document.getElementById('sys-uptime');
+                    var timeEl = document.getElementById('sys-time');
+                    var verEl = document.getElementById('sys-version');
+                    if (uptimeEl) uptimeEl.textContent = formatUptime(basic.uptime_seconds);
+                    // 系统时间统一以浏览器端按照北京时间渲染，避免服务器时区/时间配置导致显示不一致
+                    if (timeEl) {
+                        try {
+                            var now = new Date();
+                            timeEl.textContent = now.toLocaleString('zh-CN', {
+                                timeZone: 'Asia/Shanghai',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            });
+                        } catch (e) {
+                            timeEl.textContent = basic.beijing_time_display || '';
+                        }
+                    }
+                    if (verEl) verEl.textContent = basic.app_version || '-';
+
+                    // 资源信息
+                    var cpu = res.cpu || {};
+                    var mem = res.memory || {};
+                    var storage = res.storage || {};
+                    var tpu = res.tpu || {};
+
+                    setResourceBar('res-cpu-bar', 'res-cpu-text', cpu.percent);
+
+                    var memExtra = null;
+                    if (mem.total != null && mem.used != null) {
+                        memExtra = formatBytes(mem.used) + ' / ' + formatBytes(mem.total);
+                    }
+                    setResourceBar('res-mem-bar', 'res-mem-text', mem.percent, memExtra);
+
+                    var diskExtra = null;
+                    if (storage.disk_total != null && storage.disk_used != null) {
+                        diskExtra = formatBytes(storage.disk_used) + ' / ' + formatBytes(storage.disk_total);
+                    }
+                    setResourceBar('res-disk-bar', 'res-disk-text', storage.disk_percent, diskExtra);
+                    var diskPathEl = document.getElementById('res-disk-path');
+                    if (diskPathEl) {
+                        diskPathEl.textContent = '目录：' + (storage.alarm_videos_path || 'alarm_videos') +
+                            (storage.dir_size != null ? ' · 当前目录大小约 ' + formatBytes(storage.dir_size) : '');
+                    }
+
+                    var tpuPercent = tpu.utilization_percent;
+                    var tpuExtra = null;
+                    if (tpu.memory_used != null && tpu.memory_total != null) {
+                        tpuExtra = formatBytes(tpu.memory_used) + ' / ' + formatBytes(tpu.memory_total);
+                    }
+                    setResourceBar('res-tpu-bar', 'res-tpu-text', tpuPercent, tpuExtra);
+                    var tpuNoteEl = document.getElementById('res-tpu-note');
+                    if (tpuNoteEl) {
+                        tpuNoteEl.textContent = tpu.note || '';
+                    }
+
+                    // 主程序状态
+                    var mainEl = document.getElementById('sys-main-status');
+                    if (mainEl) {
+                        if (status.system_running) {
+                            mainEl.textContent = '运行中';
+                            mainEl.style.color = '#059669';
+                        } else {
+                            mainEl.textContent = '已停止';
+                            mainEl.style.color = '#dc2626';
+                        }
+                    }
+
+                    // 检测器状态列表
+                    var detUl = document.getElementById('sys-detectors');
+                    if (detUl) {
+                        detUl.innerHTML = '';
+                        var detMap = status.detectors || {};
+                        var nameMap = {
+                            'fall': '跌倒检测',
+                            'helmet': '安全帽检测',
+                            'fight': '打架检测',
+                            'crowd': '聚集检测',
+                            'window_door': '窗户门检测',
+                            'ventilator': '呼吸机检测'
+                        };
+                        Object.keys(nameMap).forEach(function(key) {
+                            var info = detMap[key] || {};
+                            var li = document.createElement('li');
+                            var running = !!info.running;
+                            li.textContent = nameMap[key] + '：' + (running ? '运行中' : '已停止');
+                            li.style.color = running ? '#059669' : '#64748b';
+                            detUl.appendChild(li);
+                        });
+                    }
+
+                    // 视频流状态列表
+                    var streamUl = document.getElementById('sys-streams');
+                    if (streamUl) {
+                        streamUl.innerHTML = '';
+                        var streams = status.streams || [];
+                        if (!streams.length) {
+                            var liEmpty = document.createElement('li');
+                            liEmpty.textContent = '暂无运行中的视频流进程（系统未启动或正在初始化）';
+                            liEmpty.style.color = '#64748b';
+                            streamUl.appendChild(liEmpty);
+                        } else {
+                            streams.forEach(function(s) {
+                                var li = document.createElement('li');
+                                var running = !!s.running;
+                                var label = (s.name === 'stream' ? '主视频流' : ('视频流 ' + s.name));
+                                li.textContent = label + '：' + (running ? ('运行中 (PID ' + s.pid + ')') : '已停止');
+                                li.style.color = running ? '#059669' : '#64748b';
+                                streamUl.appendChild(li);
+                            });
+                        }
+                    }
+                })
+                .catch(function(e) {
+                    showAppAlert('获取系统信息失败：' + e, 'error');
+                })
+                .finally(function () {
+                    if (refreshBtn) refreshBtn.classList.remove('btn-refresh-loading');
+                });
+        }
+        
+        function showToast(ev) {
+            if (!ev || ev.type !== 'alert') return;
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+            var typeLabel = alarmTypeLabels[ev.alarm_type];
+            if (!typeLabel) {
+                typeLabel = (ev.alarm_type || '').toLowerCase();
+            }
+            var timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '';
+            var el = document.createElement('div');
+            el.className = 'toast alarm';
+            el.innerHTML = '<div class="toast-type">' + typeLabel + '</div><div class="toast-time">' + timeStr + '</div>';
+            // 点击跳转到“报警事件”页，并按类别自动筛选
+            el.addEventListener('click', function() {
+                try {
+                    switchPanel('alerts');
+                    var sel = document.getElementById('alerts-category');
+                    if (sel && ev.alarm_type) {
+                        sel.value = ev.alarm_type;
+                    }
+                    loadAlertsList();
+                } catch (e) {}
+            });
+            container.appendChild(el);
+            setTimeout(function() {
+                if (el.parentNode) {
+                    el.style.animation = 'toast-out 0.3s ease forwards';
+                    setTimeout(function() {
+                        if (el.parentNode) el.parentNode.removeChild(el);
+                    }, 300);
+                }
+            }, 6000);
+        }
+        
+        function connectAlertStream() {
+            if (alertEventSource) try { alertEventSource.close(); } catch(e) {}
+            alertEventSource = new EventSource('/api/events');
+            alertEventSource.onmessage = function(e) {
+                try {
+                    var ev = JSON.parse(e.data);
+                    showToast(ev);
+                } catch(err) { console.warn('parse event:', err); }
+            };
+            alertEventSource.onerror = function() {
+                setTimeout(connectAlertStream, 3000);
+            };
+        }
+
+        function setSystemStatusUi(state) {
+            systemUiState = state;
+            var pill = document.getElementById('system-status-pill');
+            var text = document.getElementById('system-status-text');
+            if (!pill || !text) return;
+            pill.className = 'status-pill ' + (state || 'stopped');
+            if (state === 'running') {
+                pill.querySelector('.icon').textContent = '✅';
+                text.textContent = '运行中';
+            } else if (state === 'starting') {
+                pill.querySelector('.icon').textContent = '🔄';
+                text.textContent = '正在启动...';
+            } else if (state === 'stopping') {
+                pill.querySelector('.icon').textContent = '🔄';
+                text.textContent = '正在关闭...';
+            } else {
+                pill.querySelector('.icon').textContent = '❌';
+                text.textContent = '已停止';
+            }
+        }
+
+        function setVideoConnUi(state, extra) {
+            videoConnState = state;
+            var badge = document.getElementById('video-conn-badge');
+            var extraEl = document.getElementById('video-conn-extra');
+            if (!badge) return;
+            var cls = 'badge ';
+            if (state === 'ok') cls += 'ok';
+            else if (state === 'failed') cls += 'bad';
+            else cls += 'warn';
+            badge.className = cls;
+            if (state === 'ok') {
+                badge.firstChild && (badge.firstChild.textContent = '🟢 连接正常 ');
+                badge.childNodes[0].textContent = '🟢 连接正常 ';
+            } else if (state === 'reconnecting') {
+                badge.childNodes[0].textContent = '🟡 正在重连 ';
+            } else if (state === 'failed') {
+                badge.childNodes[0].textContent = '🔴 连接失败 ';
+            } else {
+                badge.childNodes[0].textContent = '🟡 正在连接 ';
+            }
+            if (extraEl) extraEl.textContent = extra ? String(extra) : '';
+        }
+
+        function setFpsUi(v) {
+            var el = document.getElementById('video-fps-value');
+            if (!el) return;
+            if (typeof v === 'number' && isFinite(v)) el.textContent = String(Math.max(0, v.toFixed(0)));
+            else el.textContent = '-';
+        }
+
+        function startFpsMeter() {
+            var v = document.getElementById('video-hls');
+            if (!v) return;
+            if (typeof v.requestVideoFrameCallback !== 'function') return;
+            function onFrame(now, meta) {
+                _fpsFrameCount++;
+                if (!_fpsLastTs) _fpsLastTs = now;
+                var dt = now - _fpsLastTs;
+                if (dt >= 1000) {
+                    var fps = (_fpsFrameCount * 1000) / dt;
+                    fpsValue = fps;
+                    setFpsUi(fps);
+                    _fpsFrameCount = 0;
+                    _fpsLastTs = now;
+                }
+                try { v.requestVideoFrameCallback(onFrame); } catch (e) {}
+            }
+            try { v.requestVideoFrameCallback(onFrame); } catch (e) {}
+        }
+
+        function connectStatusStream() {
+            if (statusEventSource) try { statusEventSource.close(); } catch(e) {}
+            statusEventSource = new EventSource('/api/status_events');
+            statusEventSource.onmessage = function(e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    applyStatus(data, true);
+                } catch (err) {}
+            };
+            statusEventSource.onerror = function() {
+                // SSE 失败则退回轮询
+                setTimeout(connectStatusStream, 4000);
+            };
+        }
+
+        function initStreamCount() {
+            fetch('/api/config/stream').then(function(r) { return r.json(); }).then(function(data) {
+                if (data && data.status === 'success') {
+                    streamCount = parseInt(data.stream_count, 10) || 1;
+                }
+                // 连接状态/FPS 由后端直接叠加到画面，前端不再重复显示
+                var overlay = document.querySelector('.video-overlay');
+                if (overlay) overlay.style.display = 'none';
+            }).catch(function() {
+                var overlay = document.querySelector('.video-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+        }
+
+        function applyStatus(data, fromSse) {
+            systemRunning = (data && data.system_running) || false;
+            if (data && data.detectors) {
+                Object.keys(data.detectors).forEach(function(name) {
+                    const detectorStatus = data.detectors[name];
+                    const toggle = document.getElementById(name + '-toggle');
+                    if (toggle && detectorStatus) {
+                        toggle.checked = detectorStatus.running || false;
+                    }
+                });
+            }
+            // 状态条：优先展示过渡态（在用户触发动作后的短时间窗口内）
+            var now = Date.now();
+            var inGrace = (now - lastUserActionAt) < 8000;
+            if (!inGrace) {
+                setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+            } else {
+                if (systemUiState === 'starting' && systemRunning) setSystemStatusUi('running');
+                if (systemUiState === 'stopping' && !systemRunning) setSystemStatusUi('stopped');
+            }
+            if (systemRunning) enableDetectorToggles(); else disableDetectorToggles();
+        }
+        
+        function showAlertsHistory() {
+            fetch('/api/alerts/history')
+                .then(r => r.json())
+                .then(function(data) {
+                    if (data.status !== 'success' || !data.items || !data.items.length) {
+                        showAppAlert('暂无历史告警记录', 'info');
+                        return;
+                    }
+                    var lines = data.items.slice(0, 20).map(function(x) {
+                        var t = x.type === 'video' ? '📹' : '🖼';
+                        return t + ' ' + x.name + ' (' + formatAlarmTime(x.mtime) + ')';
+                    });
+                    showAppAlert('最近告警文件（最多20条）：\n\n' + lines.join('\n'), 'info');
+                })
+                .catch(function(e) { showAppAlert('获取历史告警失败：' + e, 'error'); });
+        }
+        
+        function loadTimeslotConfigs() {
+            fetch('/api/timeslot/get_all')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const configs = data.configs;
+                        for (const [detector, config] of Object.entries(configs)) {
+                            const enabledCheckbox = document.getElementById(detector + '-timeslot-enabled');
+                            if (enabledCheckbox) {
+                                enabledCheckbox.checked = config.enabled;
+                            }
+                            const startInput = document.getElementById(detector + '-start');
+                            const endInput = document.getElementById(detector + '-end');
+                            if (startInput) startInput.value = config.start;
+                            if (endInput) endInput.value = config.end;
+                            updateTimeslotStatusDisplay(detector, config);
+                        }
+                    }
+                })
+                .catch(e => console.error('Failed to load timeslot configs:', e));
+        }
+        
+        function updateTimeslotStatusDisplay(detector, config) {
+            const statusDiv = document.getElementById(detector + '-timeslot-status');
+            if (!statusDiv) return;
+            
+            if (config.enabled) {
+                fetch('/api/timeslot/check?detector=' + detector)
+                    .then(r => r.json())
+                    .then(data => {
+                        const indicator = statusDiv.querySelector('.status-indicator');
+                        const text = statusDiv.querySelector('span:last-child');
+                        if (data.in_timeslot) {
+                            indicator.className = 'status-indicator active';
+                            text.textContent = '当前在时间段内 (' + config.start + '-' + config.end + ')';
+                        } else {
+                            indicator.className = 'status-indicator inactive';
+                            text.textContent = '当前不在时间段内 (' + config.start + '-' + config.end + ')';
+                        }
+                    });
+            } else {
+                const indicator = statusDiv.querySelector('.status-indicator');
+                const text = statusDiv.querySelector('span:last-child');
+                indicator.className = 'status-indicator inactive';
+                text.textContent = '时间段未启用';
+            }
+        }
+        
+        function updateTimeslotStatus(detector) {
+            saveTimeslot(detector);
+        }
+        
+        function saveTimeslot(detector) {
+            const enabled = document.getElementById(detector + '-timeslot-enabled').checked;
+            const start = document.getElementById(detector + '-start').value;
+            const end = document.getElementById(detector + '-end').value;
+            
+            fetch('/api/timeslot/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    detector: detector,
+                    enabled: enabled,
+                    start: start,
+                    end: end
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log(detector + ' 时间段配置已保存');
+                    updateTimeslotStatusDisplay(detector, {enabled: enabled, start: start, end: end});
+                } else {
+                    showAppAlert('保存失败：' + data.message, 'error');
+                }
+            })
+            .catch(e => showAppAlert('保存失败：' + e, 'error'));
+        }
+        
+        function startSystem() {
+            lastUserActionAt = Date.now();
+            setSystemStatusUi('starting');
+            fetch('/api/start', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showAppAlert('系统已启动！\n✓ 实时视频流已开启\n✓ 时间段调度器已启动\n✓ 检测器待命中\n\n可通过开关手动启用，或等待时间段自动启动', 'success');
+                        systemRunning = true;
+                        setSystemStatusUi('running');
+                        enableDetectorToggles();
+                        updateStatus();
+                    } else {
+                        setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+                        showAppAlert('启动失败：' + data.message, 'error');
+                    }
+                })
+                .catch(e => { setSystemStatusUi(systemRunning ? 'running' : 'stopped'); showAppAlert('启动失败：' + (e && e.message ? e.message : String(e)), 'error'); });
+        }
+        
+        function stopSystem() {
+            showAppConfirm('确定要停止系统吗？这将关闭所有检测器和时间段调度。', function() {
+                lastUserActionAt = Date.now();
+                setSystemStatusUi('stopping');
+                fetch('/api/stop', {method: 'POST'})
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showAppAlert('系统已停止', 'success');
+                            systemRunning = false;
+                            setSystemStatusUi('stopped');
+                            disableDetectorToggles();
+                            resetAllToggles();
+                            updateStatus();
+                        } else {
+                            setSystemStatusUi(systemRunning ? 'running' : 'stopped');
+                            showAppAlert('停止失败：' + data.message, 'error');
+                        }
+                    })
+                    .catch(e => { setSystemStatusUi(systemRunning ? 'running' : 'stopped'); showAppAlert('停止失败：' + (e && e.message ? e.message : String(e)), 'error'); });
+            });
+        }
+        
+        function toggleDetector(detectorName, enabled) {
+            if (!systemRunning) {
+                showAppAlert('请先启动系统！', 'error');
+                document.getElementById(detectorName + '-toggle').checked = false;
+                return;
+            }
+            
+            const action = enabled ? '启动' : '停止';
+            const displayName = getDetectorDisplayName(detectorName);
+            const switchElem = document.getElementById(detectorName + '-switch');
+            switchElem.classList.add('disabled');
+            
+            fetch('/api/toggle_detector', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    detector: detectorName,
+                    enabled: enabled
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                switchElem.classList.remove('disabled');
+                if (data.status === 'success') {
+                    console.log(displayName + ' ' + action + '成功');
+                    if (enabled) {
+                        showAppAlert(displayName + '已启动 (手动)\n开始检测和处理画面', 'success');
+                    } else {
+                        showAppAlert(displayName + '已停止 (手动)', 'success');
+                    }
+                    updateStatus();
+                } else {
+                    showAppAlert(action + '失败：' + data.message, 'error');
+                    document.getElementById(detectorName + '-toggle').checked = !enabled;
+                }
+            })
+            .catch(e => {
+                switchElem.classList.remove('disabled');
+                showAppAlert(action + '失败：' + (e && e.message ? e.message : String(e)), 'error');
+                document.getElementById(detectorName + '-toggle').checked = !enabled;
+            });
+        }
+        
+        function getDetectorDisplayName(name) {
+            const names = {
+                'fall': '跌倒检测',
+                'helmet': '安全帽检测',
+                'fight': '打架检测',
+                'crowd': '聚集检测',
+                'window_door': '窗户门检测',
+                'ventilator': '呼吸机检测'
+            };
+            return names[name] || name;
+        }
+        
+        function enableDetectorToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door', 'ventilator'];
+            detectors.forEach(name => {
+                const switchElem = document.getElementById(name + '-switch');
+                if (switchElem) switchElem.classList.remove('disabled');
+            });
+        }
+        
+        function disableDetectorToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door', 'ventilator'];
+            detectors.forEach(name => {
+                const switchElem = document.getElementById(name + '-switch');
+                if (switchElem) switchElem.classList.add('disabled');
+            });
+        }
+        
+        function resetAllToggles() {
+            const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door', 'ventilator'];
+            detectors.forEach(name => {
+                const toggle = document.getElementById(name + '-toggle');
+                if (toggle) toggle.checked = false;
+            });
+        }
+        
+        var hlsPlayer = null;
+        var hlsActive = false;
+        var tryHlsAttempts = 0;
+
+        function switchToMJPEG() {
+            if (hlsPlayer) {
+                try { hlsPlayer.destroy(); } catch (e) {}
+                hlsPlayer = null;
+            }
+            hlsActive = false;
+            var vh = document.getElementById('video-hls');
+            var vf = document.getElementById('video-feed');
+            if (vh) vh.style.display = 'none';
+            if (vf) { vf.style.display = 'block'; vf.src = '/video_feed'; }
+        }
+
+        function trySwitchToHLS() {
+            if (hlsActive || !window.Hls || !Hls.isSupported()) return;
+            var video = document.getElementById('video-hls');
+            var imgFeed = document.getElementById('video-feed');
+            if (!video || !imgFeed) return;
+            var url = '/hls/live.m3u8';
+            tryHlsAttempts++;
+            if (hlsPlayer) { try { hlsPlayer.destroy(); } catch (e) {} hlsPlayer = null; }
+            hlsPlayer = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hlsPlayer.loadSource(url);
+            hlsPlayer.attachMedia(video);
+            hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() {
+                hlsActive = true;
+                imgFeed.style.display = 'none';
+                video.style.display = 'block';
+                try { video.play(); } catch (e) {}
+                tryHlsAttempts = 0;
+                lastVideoOkAt = Date.now();
+                setVideoConnUi('ok');
+                startFpsMeter();
+            });
+            hlsPlayer.on(Hls.Events.ERROR, function(ev, data) {
+                if (data.fatal) {
+                    try { hlsPlayer.destroy(); } catch (e) {}
+                    hlsPlayer = null;
+                    if (hlsActive) { hlsActive = false; imgFeed.style.display = 'block'; video.style.display = 'none'; imgFeed.src = '/video_feed'; }
+                    setVideoConnUi('reconnecting');
+                }
+            });
+        }
+
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    applyStatus(data, false);
+                    if (systemRunning) {
+                        if (!hlsActive && window.Hls && Hls.isSupported() && (tryHlsAttempts === 0 || tryHlsAttempts % 5 === 0))
+                            trySwitchToHLS();
+                    } else {
+                        if (hlsActive) switchToMJPEG();
+                    }
+                    console.log('系统状态:', data);
+                })
+                .catch(e => console.error('获取状态失败：', e));
+        }
+
+        function updateVideoOverlayHealth() {
+            return; // 由后端叠加显示
+            // 粗略连接状态：HLS 活跃视为 OK；否则显示连接中/重连/失败
+            var now = Date.now();
+            if (hlsActive) {
+                setVideoConnUi('ok');
+                lastVideoOkAt = now;
+                return;
+            }
+            // MJPEG 回退时，无法可靠统计帧率，仍给出连接状态提示
+            if (!systemRunning) {
+                setVideoConnUi('failed', '系统停止');
+                setFpsUi(null);
+                return;
+            }
+            // 尝试切 HLS 的过程中视作重连
+            if (window.Hls && Hls.isSupported()) {
+                if (tryHlsAttempts > 0) setVideoConnUi('reconnecting');
+                else setVideoConnUi('connecting');
+            } else {
+                // 无 HLS 支持时，MJPEG 视为 OK（至少能看到画面）
+                setVideoConnUi('ok', 'MJPEG');
+                setFpsUi(null);
+            }
+        }
+        
+        window.onload = function() {
+            disableDetectorToggles();
+            resetAllToggles();
+            updateStatus();
+            loadTimeslotConfigs();
+            connectAlertStream();
+            connectStatusStream();
+            setSystemStatusUi('stopped');
+            initStreamCount();
+            // 轮询作为兜底（SSE 中断时仍能更新）
+            setInterval(updateStatus, 2000);
+            setInterval(updateVideoOverlayHealth, 1000);
+            setInterval(function() {
+                const detectors = ['fall', 'helmet', 'fight', 'crowd', 'window_door', 'ventilator'];
+                detectors.forEach(function(detector) {
+                    const enabledCheckbox = document.getElementById(detector + '-timeslot-enabled');
+                    if (enabledCheckbox && enabledCheckbox.checked) {
+                        const startInput = document.getElementById(detector + '-start');
+                        const endInput = document.getElementById(detector + '-end');
+                        const start = startInput ? startInput.value : '08:00';
+                        const end = endInput ? endInput.value : '18:00';
+                        updateTimeslotStatusDisplay(detector, {enabled: true, start: start, end: end});
+                    }
+                });
+            }, 10000);
+        };
+    </script>
+</body>
+</html>
