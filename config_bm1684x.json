@@ -1,0 +1,320 @@
+{
+  "fps": 20,
+  "models": {
+    "fall_detection": "models/fall-26s-320-best_int8_9b.bmodel",
+    "ventilator_equipment": "models/gasmask_yolo26s_640_int8_1b.bmodel",
+    "ventilator_helmet": "models/helmet_yolo26s_640_int8_1b.bmodel",
+    "fight_detection": "models/fight_yolo26n_640best_int8_9b.bmodel",
+    "crowd_person": "models/helmet_yolo26s_640_int8_1b.bmodel",
+    "helmet_detection": "models/helmet_yolo26s_640_int8_1b.bmodel",
+    "window_door_inside": "models/windows_yolo26s_640_int8_1b.bmodel",
+    "window_door_outside": "models/windows_yolo26s_640_int8_1b.bmodel",
+    "_comment_window_door": "window_door_inside=仓内门窗, window_door_outside=仓外门窗",
+    "_comment_quantized_aliases": "crowd_person/helmet_detection 共用 helmet 模型；window_door_inside/outside 共用 windows 模型"
+  },
+  "model_types": {
+    "fall_detection": "yolo26_int8",
+    "ventilator_equipment": "yolo26_int8",
+    "ventilator_helmet": "yolo26_int8",
+    "fight_detection": "yolo26_int8",
+    "crowd_person": "yolo26_int8",
+    "helmet_detection": "yolo26_int8",
+    "window_door_inside": "yolo26_int8",
+    "window_door_outside": "yolo26_int8",
+    "_comment": "key 必须与 models 对齐；当前默认全部切到 yolo26_int8"
+  },
+  "fall_detection": {
+    "conf_threshold": 0.55,
+    "_comment_conf_threshold": "【置信度阈值】模型输出低于此值的目标直接丢弃。调大→减少误检；调小→更容易检测。",
+    "observation_duration": 1.0,
+    "_comment_observation_duration": "【观察窗口(秒)】疑似摔倒期间在此窗口内统计 fall 命中比例。NORMAL 阶段未检出 fall 的帧不计入样本。",
+    "min_observation_duration": 0.3,
+    "_comment_min_observation_duration": "【最小观察时间(秒)】窗口内样本时间跨度≥此值才允许报警。",
+    "fall_threshold": 0.25,
+    "_comment_fall_threshold": "【摔倒命中比例】观察窗口内 fall 样本占比≥此值才报警。0.25=25%。",
+    "cooldown_duration": 60,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一场景报警后在此时间内不再重复报警。"
+  },
+  "ventilator_detection": {
+    "equipment_conf": 0.2,
+    "_comment_equipment_conf": "【装备置信度阈值】tank(氧气瓶)/mask(面罩)检测低于此值丢弃。调大→减少误检但可能漏检装备；调小→更容易识别装备。",
+    "observation_duration": 1.5,
+    "_comment_observation_duration": "【观察窗口(秒)】在此时间窗口内统计'缺失呼吸器'帧占比。调大→报警更稳定但更慢；调小→更快但可能误报。",
+    "min_observation_duration": 0.8,
+    "_comment_min_observation_duration": "【最小观察时间(秒)】必须至少观察这么久才能报警。调大→更可靠；调小→更快。必须≤observation_duration。",
+    "missing_equipment_threshold": 0.5,
+    "_comment_missing_equipment_threshold": "【缺失装备报警比例】观察窗口内缺少呼吸器的帧占比≥此值才报警。调大→需要更多缺失帧，更严格；调小→更容易报警。0.5=50%帧无装备即报警。",
+    "pass_threshold": 0.3,
+    "_comment_pass_threshold": "【通过比例】装备佩戴率≥此值视为合格(不报警)。调大→要求更严格(更多帧佩戴才算合格)；调小→更容易判定为合格。",
+    "mask_iou_threshold": 0.15,
+    "_comment_mask_iou_threshold": "【面罩IoU匹配阈值】面罩框与头部框的IoU≥此值视为匹配。调大→匹配更严格；调小→更容易匹配但可能误关联。",
+    "tank_distance_coefficient": 2.0,
+    "_comment_tank_distance_coefficient": "【氧气瓶距离系数】氧气瓶中心距头部中心的允许距离=系数×头高。调大→更远的气瓶也算匹配；调小→必须更近。",
+    "tank_x_offset_coefficient": 1.0,
+    "_comment_tank_x_offset_coefficient": "【氧气瓶水平偏移系数】氧气瓶水平偏移允许值=系数×头宽。调大→允许更大的水平偏移；调小→要求更严格对齐。",
+    "head_iou_threshold": 0.3,
+    "_comment_head_iou_threshold": "【头部跟踪IoU阈值】头部检测框与跟踪框的匹配IoU阈值。调大→匹配更严格；调小→更容易关联。",
+    "head_center_distance_threshold_ratio": 1.8,
+    "_comment_head_center_distance_threshold_ratio": "【头部中心距匹配比例】两框中心距离≤比值×框尺寸时视为同一目标。调大→更宽松的匹配；调小→更严格。",
+    "cooldown_duration": 60,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一目标报警后在此时间内不再重复报警。比赛建议60秒。"
+  },
+  "fight_detection": {
+    "conf_threshold": 0.55,
+    "_comment_conf_threshold": "【置信度阈值】模型输出低于此值的目标直接丢弃。打架置信度通常偏低，偏敏感档建议0.10；误报多可调至0.12~0.15。",
+    "observation_duration": 1.0,
+    "_comment_observation_duration": "【观察窗口(秒)】疑似打架期间在此窗口内统计 fight 命中比例。NORMAL 阶段未检出 fight 的帧不计入样本。",
+    "min_observation_duration": 0.5,
+    "_comment_min_observation_duration": "【最小观察时间(秒)】窗口内样本时间跨度≥此值才允许报警。调小→更快；调大→更稳。",
+    "fight_threshold": 0.25,
+    "_comment_fight_threshold": "【打架命中比例】观察窗口内 fight 样本占比≥此值才报警。0.25=25%；误报多可调至0.30。",
+    "cooldown_duration": 60,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一场景报警后在此时间内不再重复报警。比赛建议60秒。"
+  },
+  "crowd_detection": {
+    "person_conf": 0.2,
+    "_comment_person_conf": "【人头置信度阈值】安全帽模型输出的头盔/未佩戴头盔人头框低于此值丢弃。调大→减少误检；调小→更多人头被计入。",
+    "min_crowd_count": 2,
+    "_comment_min_crowd_count": "【最小聚集人数】同一聚集组内至少多少人算聚集。2=两人靠近即报；3=至少三人。",
+    "range_expand_ratio": 1.5,
+    "_comment_range_expand_ratio": "【范围框扩展倍数】以每个人头框宽高为基准向四周扩展。1.5 表示左右各扩 1.5 倍框宽、上下各扩 1.5 倍框高；其他人头框与该范围框有重叠即视为靠近。640x360 检测分辨率下建议 1.2~2.0。",
+    "range_expand_pixels_min": 30,
+    "_comment_range_expand_pixels_min": "【范围框最小扩展像素】人头框很小时仍保证有效范围，避免远处小目标范围过小漏检。",
+    "observation_duration": 1.0,
+    "_comment_observation_duration": "【观察窗口(秒)】在此时间窗口内统计聚集命中比例。调大→报警更稳定但更慢；调小→更快触发。",
+    "stability_ratio": 0.3,
+    "_comment_stability_ratio": "【聚集命中比例】观察窗口内检测到聚集的样本占比≥此值才报警。0.3=30%样本命中即报警；3fps 下约 1 秒窗口内至少 1 次命中。",
+    "stability_duration": 0.5,
+    "_comment_stability_duration": "【最小观察时间(秒)】窗口内样本时间跨度至少达到此值才允许报警。调大→更可靠；调小→更快。",
+    "spatial_distance": 50.0,
+    "_comment_spatial_distance": "【空间变化距离(像素)】聚集中心移动≤此值视为同一聚集事件(不重复报警)。调大→更宽松；调小→稍微移动就视为新事件。",
+    "cooldown_duration": 30,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一区域报警后在此时间内不再重复报警。聚集事件建议较短冷却(30-60秒)。"
+  },
+  "helmet_detection": {
+    "conf_threshold": 0.25,
+    "_comment_conf_threshold": "【置信度阈值】模型输出低于此值的目标直接丢弃。调大→减少误检但可能漏检；调小→更容易检测但可能误报。范围0.15~0.4。",
+    "iou_threshold": 0.3,
+    "_comment_iou_threshold": "【跟踪IoU阈值】检测框与跟踪框的IoU≥此值视为同一目标。调大→匹配更严格；调小→更容易关联但可能串扰。",
+    "max_age": 15,
+    "_comment_max_age": "【跟踪保持帧数】目标消失后跟踪器保留的最大帧数。调大→短暂转身/遮挡后能恢复；调小→更快清除消失目标。3fps下15帧≈5秒。",
+    "center_distance_threshold_ratio": 1.6,
+    "_comment_center_distance_threshold_ratio": "【中心距匹配比例】两框中心距离≤比值×框尺寸时视为同一目标。调大→更宽松匹配；调小→更严格。",
+    "observation_duration": 1.5,
+    "_comment_observation_duration": "【观察窗口(秒)】在此时间窗口内统计未佩戴安全帽帧占比。调大→报警更稳定但更慢；调小→更快触发。3fps下1.5秒≈4-5帧。",
+    "no_helmet_threshold": 0.4,
+    "_comment_no_helmet_threshold": "【未佩戴报警比例】观察窗口内未佩戴安全帽帧占比≥此值才报警。调大→更严格(需要更多未佩戴帧)；调小→更敏感。0.4=40%帧无安全帽即报警(4-5帧中≥2帧)。",
+    "alert_duration": 0.8,
+    "_comment_alert_duration": "【最小报警持续时间(秒)】观测时长必须≥此值才可能报警。调大→更可靠但更慢；调小→更快。必须≤observation_duration。",
+    "timer_reset_grace_s": 3.0,
+    "_comment_timer_reset_grace_s": "【计时重置宽限期(秒)】未佩戴安全帽状态消失后，计时器保留多久不归零。调大→短暂佩戴后取下能快速续上累计；调小→状态恢复更快。",
+    "track_timeout_s": 3.0,
+    "_comment_track_timeout_s": "【跟踪超时(秒)】目标在此时间内未被检测到则清除跟踪状态。调大→遮挡后能恢复；调小→更快清除消失目标。",
+    "cooldown_duration": 60,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一目标报警后在此时间内不再重复报警。比赛建议60秒，生产环境可调至180-300。"
+  },
+  "window_door_detection": {
+    "conf_threshold": 0.25,
+    "_comment_conf_threshold": "【置信度阈值】模型输出低于此值的目标直接丢弃。调大→减少误检；调小→更容易检测。",
+    "iou_threshold": 0.3,
+    "_comment_iou_threshold": "【跟踪IoU阈值】检测框与跟踪框的IoU≥此值视为同一目标。调大→匹配更严格；调小→更容易关联。",
+    "max_age": 5,
+    "_comment_max_age": "【跟踪保持帧数】目标消失后跟踪器保留的最大帧数。门窗相对固定，建议5~10。调大→抗遮挡更强；调小→状态变化响应更快。",
+    "observation_frames": 8,
+    "_comment_observation_frames": "【观察帧数】连续观察这么多帧后才确认门窗状态变化。调大→确认更稳定但更慢；调小→更快反应。3fps下8帧≈2.7秒。",
+    "detection_threshold": 0.4,
+    "_comment_detection_threshold": "【检测确认比例】观察帧数内检测到状态变化的帧占比≥此值才确认。调大→更严格；调小→更快确认。0.4=40%帧检测到即确认。",
+    "cooldown_duration": 60,
+    "_comment_cooldown_duration": "【报警冷却(秒)】同一门窗报警后在此时间内不再重复报警。比赛建议60秒。"
+  },
+  "output": {
+    "video_output_dir": "alarm_videos",
+    "alarm_retention_days": 3,
+    "display_port": 5010,
+    "font_path": "simhei.ttf",
+    "alert_box_mode": "follow",
+    "preview_transport": "mjpeg",
+    "preview_fps": 20,
+    "preview_fps_strict": true,
+    "preview_encoder": "auto",
+    "preview_hls_dir": "runtime/preview_hls",
+    "preview_hls_segment_seconds": 1,
+    "preview_hls_playlist_size": 3,
+    "_comment_alarm_retention_days": "告警图片/视频保留天数；展示服务启动时和每次保存新告警后都会清理更旧文件",
+    "_comment_preview_transport": "网页部署推荐 mjpeg；MJPEG 已做单消费者缓存扇出，多浏览器预览不会互相抢帧。local 仅用于设备本机弹窗，hls 仅在需要分片播放时使用。",
+    "_comment_alert_box_mode": "报警框显示模式：\"blink\"=跳帧/闪烁显示，\"follow\"=每帧跟随显示",
+    "preview_result_ttl_s": 1.0,
+    "preview_result_max_frame_lag": 20,
+    "preview_alert_box_hold_s": 1.2,
+    "preview_alert_box_tracking": true,
+    "preview_alert_box_prediction_max_s": 0.0,
+    "preview_alert_box_detection_lag_compensation": false,
+    "preview_alert_box_track_max_shift_ratio": 0.35,
+    "preview_alert_box_predict_max_shift_ratio": 1.5,
+    "preview_max_alert_boxes_per_stream": 0,
+    "preview_max_alert_labels_per_stream": 0,
+    "_comment_preview_overlay_limits": "预览叠加：检测结果 TTL 负责更新报警框缓存，preview_alert_box_hold_s 负责目标短暂丢失时继续显示；tracking 在两次检测之间用预览帧光流补偿位置；默认关闭速度预测，避免框跑偏；preview_max_alert_boxes_per_stream/preview_max_alert_labels_per_stream 为 0 表示不限制，报警有多少就画多少框和标签。",
+    "_comment_preview_perf": "四路预览模式：显示层默认不限制报警框和标签数量；现场若报警目标过多导致预览卡顿，可再设置 preview_max_alert_boxes_per_stream 做上限。",
+    "preview_merged_simple_alert_boxes": true,
+    "_comment_preview_20fps": "客户目标 20fps：四宫格预览使用轻量矩形框，MJPEG 编码在线程中异步完成，display 主循环只提交最新帧。",
+    "preview_mjpeg_quality": 90,
+    "_comment_preview_labels": "默认每个报警框都绘制文字标签；preview_max_alert_labels_per_stream 为 0 表示不限制。",
+    "preview_alert_debug_log_interval_s": 1.0,
+    "_comment_preview_alert_debug": "告警调试日志限频（秒）：每个 detector/通道输出 display_alerts 数、is_recording 数、track id、duration 和 cooldown；设为0表示每次结果都打印。",
+    "preview_raw_model_boxes_enabled": false,
+    "preview_raw_model_boxes_min_conf": 0.0,
+    "_comment_preview_raw_model_boxes": "测试阶段显示模型原始输出框：helmet/head=黄，mask=绿，tank=蓝；正式使用建议关闭。",
+    "alarm_buffer_fps": 8,
+    "_comment_alarm_buffer_fps": "告警录像缓冲帧率上限，降低拷贝和编码压力；不影响网页预览帧率。"
+  },
+  "_comment_queue_latency": "frame_queue 小可降低端到端延迟；2~3 在保证不卡顿前提下尽量低延迟",
+  "detection_inference_subsample": 3,
+  "_comment_subsample": "检测器推理采样间隔，1=每帧推理，2=每2帧推理1次，降低BM1684x负载",
+  "detection_timeshare": {
+    "enabled": true,
+    "_comment_enabled": "true=检测器按轮询/分时推理；四路预览下按任务绑定通道走批调度以复用统一模型运行路径。",
+    "min_update_interval_s": 1.0,
+    "_comment_min_update_interval_s": "每个检测器对同一路视频的最小推理更新间隔（秒）。0.5 表示每路 0.5s 更新一次即可",
+    "max_active_streams_per_detector": 1,
+    "_comment_max_active_streams_per_detector": "四路预览下每轮最多推理 1 路，任务绑定决定当前检测通道。",
+    "frame_cache_ttl_s": 1.5,
+    "_comment_frame_cache_ttl_s": "缓存最新帧的有效期（秒）。超过则认为该路暂时无有效帧，不会触发推理",
+    "tick_sleep_s": 0.005,
+    "_comment_tick_sleep_s": "检测器主循环空转 sleep（秒），降低CPU占用"
+  },
+  "queue_sizes": {
+    "frame_queue": 60,
+    "result_queue": 1,
+    "display_queue": 3
+  },
+  "bm1684x": {
+    "device_id": 0,
+    "enable_sophon": true,
+    "decode_backend": "auto",
+    "scale_backend": "cv2",
+    "detect_frame_max_width": 640,
+    "detect_frame_max_height": 360,
+    "detect_slot_max_width": 1920,
+    "detect_slot_max_height": 1080,
+    "detect_emit_fps": 3,
+    "preview_cell_width": 640,
+    "preview_cell_height": 360,
+    "preview_frame_width": 0,
+    "preview_frame_height": 0,
+    "preview_source_fps": 20,
+    "_comment_detect_frame_size": "检测侧写入共享内存前先缩到最多640x360；预览仍按output配置走独立链路，检测结果用coord_width/coord_height映射。",
+    "_comment_detect_emit_fps": "检测侧每路抽帧 FPS；四路预览下可根据现场负载在 2~3 之间调整。"
+  },
+  "video_streams": [
+    {
+      "name": "通道1",
+      "source_type": "file",
+      "source": "/home/admin/workspace/code_v2/test_video/all_test.mp4",
+      "ip": "/home/admin/workspace/code_v2/test_video/all_test.mp4"
+    },
+    {
+      "name": "通道2",
+      "source_type": "file",
+      "source": "/home/admin/workspace/code_v2/test_video/all_test.mp4",
+      "ip": "/home/admin/workspace/code_v2/test_video/all_test.mp4"
+    },
+    {
+      "name": "通道3",
+      "source_type": "file",
+      "source": "/home/admin/workspace/code_v2/test_video/all_test.mp4",
+      "ip": "/home/admin/workspace/code_v2/test_video/all_test.mp4"
+    },
+    {
+      "name": "通道4",
+      "source_type": "file",
+      "source": "/home/admin/workspace/code_v2/test_video/all_test.mp4",
+      "ip": "/home/admin/workspace/code_v2/test_video/all_test.mp4"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t_1772772831000",
+      "name": "通道1",
+      "stream_index": 1,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1781068535116",
+      "name": "通道2",
+      "stream_index": 2,
+      "detectors": [
+        "helmet"
+      ]
+    },
+    {
+      "id": "t_1781068544582",
+      "name": "通道3",
+      "stream_index": 3,
+      "detectors": [
+        "ventilator"
+      ]
+    },
+    {
+      "id": "t_1781068554176",
+      "name": "通道4",
+      "stream_index": 4,
+      "detectors": [
+        "crowd"
+      ]
+    }
+  ],
+  "batch_scheduler": {
+    "enabled": true,
+    "job_intervals_s": {
+      "fall": 0.15,
+      "fight": 0.15,
+      "helmet": 0.15,
+      "crowd": 0.2,
+      "ventilator": 0.25,
+      "window_door_inside": 2.5,
+      "window_door_outside": 2.5
+    },
+    "max_jobs_per_tick": 4,
+    "max_model_inferences_per_tick": 5,
+    "max_batch_wait_ms": 0,
+    "detector_priority": {
+      "ventilator": 10,
+      "crowd": 10,
+      "fall": 9,
+      "fight": 9,
+      "helmet": 9,
+      "window_door_inside": 3,
+      "window_door_outside": 3
+    },
+    "batch_streams": 1,
+    "stream_interval_s": 0.12,
+    "_comment_stream_interval_s": "【通道推理间隔(秒)】同一通道两次推理的最小间隔。调小→检测更密集但CPU/TPU负载更高；调大→降低负载但检测更新变慢。",
+    "model_intervals_s": {
+      "helmet_detection": 0.25,
+      "fall_detection": 0.15,
+      "fight_detection": 0.15,
+      "ventilator_equipment": 0.25,
+      "window_door_inside": 2.5,
+      "window_door_outside": 2.5
+    },
+    "_comment_model_intervals_s": "【模型推理间隔(秒)】每个模型两次推理之间的最小间隔。调小→该模型推理更频繁；调大→减少TPU占用。安全帽/摔倒/打架建议0.15-0.3，门窗等固定物体建议2.0~3.0。",
+    "max_models_per_tick": 5,
+    "_comment_max_models_per_tick": "【每tick最大推理模型数】四路常驻(fight+fall+ventilator+crowd)建议≥5，否则ventilator/crowd会被饿死。",
+    "preview_backpressure_enabled": false,
+    "preview_backpressure_fps": 10.0,
+    "preview_backpressure_sleep_s": 0.02,
+    "_comment_resource_isolation": "预览scale_backend=cv2，减少预览与推理BMCV资源竞争；若CPU不足可改回bmcv对比。",
+    "_comment_preview_backpressure": "默认关闭：预览卡顿多为展示/MJPEG CPU 开销，反压会让 TPU 长时间 0%。如需保护预览可再打开。",
+    "_comment_tpu_feed": "性能档：提高检测抽帧和批调度频率，目标减少框更新卡顿并提高 TPU 忙碌度；如预览掉帧严重再降 detect_emit_fps/max_models_per_tick。"
+  },
+  "llm": {
+    "enabled": false,
+    "api_key": "",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "timeout": 12.0,
+    "_comment": "DeepSeek API：enabled=true 启用云端大模型润色；api_key 从 https://platform.deepseek.com 获取；不启用时自动回退本地模板。"
+  }
+}
