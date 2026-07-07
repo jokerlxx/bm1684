@@ -1,0 +1,26 @@
+[Unit]
+Description=BM1684x Web UI (main.py)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/admin/workspace/code/code
+ExecStart=/usr/bin/python3 /home/admin/workspace/code/code/main.py
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+# 用与手动运行一致的用户启动，避免 root 环境差异导致启动失败
+User=admin
+Group=admin
+
+# 写入文件日志（部分系统 journalctl 不可用时便于排障）
+StandardOutput=append:/home/admin/workspace/code/code/bm-web.log
+StandardError=inherit
+
+# 可按需调大（推理/编码可能会开很多子进程）
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
